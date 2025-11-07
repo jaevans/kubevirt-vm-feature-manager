@@ -1,0 +1,134 @@
+---
+# Example VM using GPU Device Plugin feature
+# This enables GPU passthrough via Kubernetes device plugins
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: gpu-vm
+  namespace: default
+  annotations:
+    # Request GPU via device plugin (requires device plugin to be running on nodes)
+    vm-feature-manager.io/gpu-device-plugin: "nvidia.com/gpu"
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: gpu-vm
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+        # The webhook will add GPU resource limit here
+        # resources:
+        #   limits:
+        #     nvidia.com/gpu: "1"
+      volumes:
+      - name: containerdisk
+        containerDisk:
+          image: quay.io/containerdisks/ubuntu:22.04
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          userData: |
+            #cloud-config
+            password: ubuntu
+            chpasswd: { expire: False }
+
+---
+# Example using AMD GPU device plugin
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: amd-gpu-vm
+  namespace: default
+  annotations:
+    vm-feature-manager.io/gpu-device-plugin: "amd.com/gpu"
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: amd-gpu-vm
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+      volumes:
+      - name: containerdisk
+        containerDisk:
+          image: quay.io/containerdisks/ubuntu:22.04
+
+---
+# Example using Intel GPU device plugin
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: intel-gpu-vm
+  namespace: default
+  annotations:
+    vm-feature-manager.io/gpu-device-plugin: "intel.com/gpu"
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: intel-gpu-vm
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+      volumes:
+      - name: containerdisk
+        containerDisk:
+          image: quay.io/containerdisks/ubuntu:22.04
+
+---
+# Example combining GPU device plugin with other features
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: gpu-all-features-vm
+  namespace: default
+  annotations:
+    # Enable nested virtualization
+    vm-feature-manager.io/nested-virt: "true"
+    # Pass through GPU via device plugin
+    vm-feature-manager.io/gpu-device-plugin: "nvidia.com/gpu"
+    # Also pass through specific PCI devices (e.g., USB controller)
+    vm-feature-manager.io/pci-passthrough: |
+      [
+        {"address": "0000:00:14.0", "name": "usb-controller"}
+      ]
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: gpu-all-features-vm
+    spec:
+      domain:
+        cpu:
+          # Webhook will add CPU features here for nested virt
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+          # Webhook will add PCI hostDevices here
+        # Webhook will add GPU resource limits here
+      volumes:
+      - name: containerdisk
+        containerDisk:
+          image: quay.io/containerdisks/ubuntu:22.04

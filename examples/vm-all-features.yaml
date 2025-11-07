@@ -1,0 +1,143 @@
+---
+# Comprehensive Example: VM with All Features Enabled
+# This VM demonstrates using all four features simultaneously:
+# 1. Nested Virtualization (AMD SVM or Intel VMX)
+# 2. PCI Passthrough (USB controller + Network card)
+# 3. vBIOS Injection (for AMD iGPU)
+# 4. GPU Device Plugin (NVIDIA GPU via device plugin)
+
+# First, create the ConfigMap with vBIOS blob
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vbios-amd-igpu
+  namespace: default
+binaryData:
+  # The 'rom' key is required - this is where the vBIOS blob goes
+  # Replace this with actual vBIOS data (base64 encoded)
+  rom: |
+    AAA...base64_encoded_vbios_blob_here...AAA
+
+---
+# Now create the VM with all features
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: ultimate-vm
+  namespace: default
+  annotations:
+    # Feature 1: Enable nested virtualization
+    # The webhook will detect the host CPU (AMD or Intel) and add the appropriate feature
+    vm-feature-manager.io/nested-virt: "true"
+    
+    # Feature 2: Pass through specific PCI devices
+    # Format: JSON array with address (DDDD:BB:DD.F) and optional name
+    vm-feature-manager.io/pci-passthrough: |
+      [
+        {
+          "address": "0000:00:14.0",
+          "name": "usb-controller"
+        },
+        {
+          "address": "0000:03:00.0",
+          "name": "ethernet-adapter"
+        }
+      ]
+    
+    # Feature 3: Inject vBIOS for iGPU passthrough
+    # References the ConfigMap created above
+    vm-feature-manager.io/vbios-injection: "vbios-amd-igpu"
+    
+    # Feature 4: Request GPU via Kubernetes device plugin
+    # This is typically used for discrete GPUs, while vBIOS is for iGPUs
+    # In practice, you might use EITHER vbios-injection OR gpu-device-plugin
+    vm-feature-manager.io/gpu-device-plugin: "nvidia.com/gpu"
+    
+    # Optional: Override the default sidecar image for vBIOS injection
+    # vm-feature-manager.io/sidecar-image: "registry.example.com/kubevirt/sidecar-shim:custom"
+
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: ultimate-vm
+    spec:
+      domain:
+        cpu:
+          # The webhook will add CPU features here based on host detection
+          # AMD: features: [{name: svm, policy: require}]
+          # Intel: features: [{name: vmx, policy: require}]
+          cores: 4
+        
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          # The webhook will add PCI host devices here:
+          # - name: pci_0000_00_14_0
+          #   hostDevice:
+          #     deviceName: pci_0000_00_14_0
+          
+        memory:
+          guest: 8Gi
+        
+        resources:
+          # The webhook will add GPU resource limits here:
+          # limits:
+          #   nvidia.com/gpu: "1"
+          requests:
+            memory: 8Gi
+      
+      # The webhook will add the vBIOS volume here:
+      # - name: vbios-rom
+      #   configMap:
+      #     name: vbios-amd-igpu
+      volumes:
+      - name: containerdisk
+        containerDisk:
+          image: quay.io/containerdisks/ubuntu:22.04
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          userData: |
+            #cloud-config
+            hostname: ultimate-vm
+            password: ubuntu
+            chpasswd: { expire: False }
+            ssh_pwauth: True
+            
+            # Install GPU drivers on first boot
+            runcmd:
+              - apt-get update
+              - apt-get install -y pciutils lshw
+              # For NVIDIA: apt-get install -y nvidia-driver-535
+              # For AMD: apt-get install -y firmware-amd-graphics
+              
+    # The webhook will add hook sidecar annotation here for vBIOS:
+    # metadata:
+    #   annotations:
+    #     hooks.kubevirt.io/hookSidecars: >
+    #       [{
+    #         "image": "registry.k8s.io/kubevirt/sidecar-shim:v1.4.0",
+    #         "args": ["--version", "v1alpha2", "--hook-type", "onDefineDomain"]
+    #       }]
+
+---
+# After the webhook processes the VM, tracking annotations will be added:
+# metadata:
+#   annotations:
+#     # Input annotations (user-provided)
+#     vm-feature-manager.io/nested-virt: "true"
+#     vm-feature-manager.io/pci-passthrough: "[...]"
+#     vm-feature-manager.io/vbios-injection: "vbios-amd-igpu"
+#     vm-feature-manager.io/gpu-device-plugin: "nvidia.com/gpu"
+#     
+#     # Output annotations (webhook-added)
+#     vm-feature-manager.io/nested-virt-applied: "svm"  # or "vmx" for Intel
+#     vm-feature-manager.io/pci-passthrough-applied: "2 devices"
+#     vm-feature-manager.io/vbios-injection-applied: "vbios-amd-igpu"
+#     vm-feature-manager.io/gpu-device-plugin-applied: "nvidia.com/gpu"

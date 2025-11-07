@@ -1,0 +1,100 @@
+# Example: VirtualMachine with nested virtualization
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: vm-with-nested-virt
+  namespace: default
+  annotations:
+    # Enable nested virtualization
+    vm-feature-manager.io/nested-virtualization: "enabled"
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-with-nested-virt
+    spec:
+      domain:
+        devices:
+          disks:
+            - name: containerdisk
+              disk:
+                bus: virtio
+        resources:
+          requests:
+            memory: 2Gi
+            cpu: 2
+      volumes:
+        - name: containerdisk
+          containerDisk:
+            image: kubevirt/fedora-cloud-container-disk-demo
+
+---
+# Example: VirtualMachine with vBIOS injection and PCI passthrough
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: vm-with-igpu
+  namespace: default
+  annotations:
+    # Enable vBIOS injection
+    vm-feature-manager.io/vbios-configmap: "my-igpu-vbios"
+    # PCI address of the iGPU (required for vBIOS injection)
+    vm-feature-manager.io/pci-passthrough: "0000:00:02.0"
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-with-igpu
+    spec:
+      domain:
+        devices:
+          disks:
+            - name: containerdisk
+              disk:
+                bus: virtio
+        resources:
+          requests:
+            memory: 4Gi
+            cpu: 4
+      volumes:
+        - name: containerdisk
+          containerDisk:
+            image: kubevirt/fedora-cloud-container-disk-demo
+
+---
+# Example: VirtualMachine with all features
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: vm-with-all-features
+  namespace: default
+  annotations:
+    # Nested virtualization
+    vm-feature-manager.io/nested-virtualization: "enabled"
+    # vBIOS injection
+    vm-feature-manager.io/vbios-configmap: "my-igpu-vbios"
+    # PCI passthrough
+    vm-feature-manager.io/pci-passthrough: "0000:00:02.0"
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-with-all-features
+    spec:
+      domain:
+        devices:
+          disks:
+            - name: containerdisk
+              disk:
+                bus: virtio
+        resources:
+          requests:
+            memory: 8Gi
+            cpu: 8
+      volumes:
+        - name: containerdisk
+          containerDisk:
+            image: kubevirt/fedora-cloud-container-disk-demo

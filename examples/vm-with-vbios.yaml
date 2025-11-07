@@ -1,0 +1,83 @@
+---
+# Example ConfigMap containing vBIOS ROM blob for AMD iGPU
+# The vBIOS blob should be extracted from your host system
+# See: https://github.com/awilliam/rom-parser for extraction tools
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: amd-igpu-vbios
+  namespace: default
+binaryData:
+  # The key MUST be "rom" as specified in the design
+  # This is a placeholder - replace with your actual vBIOS blob (base64 encoded)
+  rom: "<base64-encoded-vbios-blob-here>"
+
+---
+# Example VirtualMachine with vBIOS injection
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: vm-with-vbios
+  namespace: default
+  annotations:
+    # Request vBIOS injection from the specified ConfigMap
+    vm-feature-manager.io/vbios-injection: "amd-igpu-vbios"
+    
+    # Optional: Override the default sidecar image
+    # vm-feature-manager.io/sidecar-image: "registry.example.com/kubevirt/sidecar-shim:v1.4.0"
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        app: test-vm
+    spec:
+      domain:
+        devices:
+          # PCI passthrough for the iGPU (example address)
+          hostDevices:
+            - name: igpu
+              deviceName: pci_0000_00_02_0
+        resources:
+          requests:
+            memory: 4Gi
+      volumes:
+        - name: root-disk
+          containerDisk:
+            image: quay.io/kubevirt/fedora-cloud-container-disk-demo:latest
+
+---
+# Example: Combined features (vBIOS + nested virt + PCI passthrough)
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: vm-with-all-features
+  namespace: default
+  annotations:
+    # Enable nested virtualization
+    vm-feature-manager.io/nested-virt: "enabled"
+    
+    # Configure vBIOS injection
+    vm-feature-manager.io/vbios-injection: "amd-igpu-vbios"
+    
+    # Add PCI passthrough devices
+    vm-feature-manager.io/pci-passthrough: '{"devices": ["0000:00:02.0", "0000:00:14.0"]}'
+    
+    # Optional: Use custom sidecar for vBIOS
+    vm-feature-manager.io/sidecar-image: "my-registry.io/sidecar:custom"
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        app: advanced-vm
+    spec:
+      domain:
+        resources:
+          requests:
+            memory: 8Gi
+            cpu: 4
+      volumes:
+        - name: root-disk
+          persistentVolumeClaim:
+            claimName: vm-root-disk

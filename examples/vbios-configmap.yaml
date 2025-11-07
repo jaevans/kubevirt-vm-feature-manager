@@ -1,0 +1,23 @@
+# Example: vBIOS ConfigMap
+#
+# This ConfigMap contains a vBIOS ROM blob for GPU passthrough.
+# The 'rom' key contains the base64-encoded vBIOS binary.
+#
+# To create this ConfigMap from a vBIOS file:
+#   kubectl create configmap my-igpu-vbios \
+#     --from-literal=rom="$(base64 -w 0 < vbios.rom)"
+#
+# Or using this YAML template:
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-igpu-vbios
+  namespace: default
+data:
+  # Base64-encoded vBIOS ROM
+  # Replace this with your actual vBIOS data
+  rom: |
+    VGhpcyBpcyBhIHBsYWNlaG9sZGVyIGZvciB0aGUgYWN0dWFsIHZCSU9TIFJP
+    TSBkYXRhLiBSZXBsYWNlIHRoaXMgd2l0aCB0aGUgYmFzZTY0LWVuY29kZWQg
+    Y29udGVudHMgb2YgeW91ciB2QklPUyBmaWxlLg==
