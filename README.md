@@ -36,6 +36,22 @@ spec:
 
 ### Installation
 
+#### Using Container Images
+
+Multi-arch container images are available on GitHub Container Registry:
+
+```bash
+# Pull the latest release
+docker pull ghcr.io/jaevans/kubevirt-vm-feature-manager:latest
+
+# Or a specific version
+docker pull ghcr.io/jaevans/kubevirt-vm-feature-manager:v1.0.0
+```
+
+Supported architectures: `linux/amd64`, `linux/arm64`, `linux/arm/v7`
+
+#### Using Helm
+
 Install via Helm:
 
 ```bash
@@ -43,6 +59,10 @@ helm install vm-feature-manager ./deploy/helm/vm-feature-manager \
   --namespace kubevirt \
   --create-namespace
 ```
+
+#### Using Pre-built Binaries
+
+Download pre-built binaries from the [releases page](https://github.com/jaevans/kubevirt-vm-feature-manager/releases).
 
 ## Configuration
 
@@ -56,15 +76,24 @@ The webhook uses the KubeVirt hook sidecar pattern for vBIOS injection, allowing
 
 ### Prerequisites
 
-- Go 1.23+
+- Go 1.25+
 - Kubernetes cluster with KubeVirt installed
 - kubectl
 
 ### Building
 
 ```bash
-go build -o webhook cmd/webhook/main.go
+# Build locally
+make build
+
+# Build multi-arch release locally (requires GoReleaser)
+make release-snapshot
+
+# Traditional Docker build
+make docker-build
 ```
+
+See [RELEASE.md](RELEASE.md) for release process documentation.
 
 ### Running Locally
 

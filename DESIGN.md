@@ -5,7 +5,7 @@
 The KubeVirt VM Feature Manager is a **mutating admission webhook** for Harvester HCI that automatically modifies VirtualMachine objects based on feature annotations. This enables advanced capabilities like nested virtualization, vBIOS injection for iGPU passthrough, PCI device passthrough, and GPU device plugin configuration.
 
 **Target Environment**: Harvester HCI (built on Rancher + KubeVirt)  
-**Primary Language**: Go 1.23  
+**Primary Language**: Go 1.25  
 **Development Approach**: Test-Driven Development (TDD) with Ginkgo v2 + Gomega
 
 ## Architecture
@@ -589,7 +589,7 @@ Multi-stage build for minimal image size:
 
 ```dockerfile
 # Stage 1: Build
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download

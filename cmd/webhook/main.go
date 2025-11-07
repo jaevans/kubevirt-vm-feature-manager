@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,6 +26,11 @@ import (
 
 var (
 	scheme = runtime.NewScheme()
+
+	// Version information - set by GoReleaser at build time
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 func init() {
@@ -34,17 +40,28 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var showVersion bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
+	flag.BoolVar(&showVersion, "version", false, "Show version information and exit.")
 	flag.Parse()
+
+	// Show version and exit if requested
+	if showVersion {
+		fmt.Printf("vm-feature-manager %s (commit: %s, built: %s)\n", version, commit, date)
+		os.Exit(0)
+	}
 
 	// Set up logger
 	log.SetLogger(zap.New(zap.UseDevMode(true)))
 	logger := log.Log.WithName("vm-feature-manager")
 	ctx := log.IntoContext(context.Background(), logger)
 
-	logger.Info("Starting VM Feature Manager Webhook")
+	logger.Info("Starting VM Feature Manager Webhook",
+		"version", version,
+		"commit", commit,
+		"buildDate", date)
 
 	// Load configuration
 	cfg := config.LoadConfig()

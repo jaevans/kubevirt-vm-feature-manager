@@ -1,4 +1,4 @@
-.PHONY: help build test test-verbose clean lint fmt vet docker-build generate-mocks
+.PHONY: help build test test-verbose clean lint fmt vet docker-build generate-mocks release release-snapshot
 
 # Variables
 BINARY_NAME=webhook
@@ -8,6 +8,7 @@ GO=go
 GINKGO=ginkgo
 GOLANGCI_LINT=golangci-lint
 MOCKERY=mockery
+GORELEASER=goreleaser
 
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -15,7 +16,7 @@ help: ## Display this help
 ##@ Development
 
 # Setup envtest binaries
-ENVTEST_K8S_VERSION = 1.23.5
+ENVTEST_K8S_VERSION = 1.33.0
 ENVTEST_ASSETS_DIR=$(shell setup-envtest use $(ENVTEST_K8S_VERSION) -p path)
 
 build: ## Build the webhook binary
@@ -67,11 +68,23 @@ clean: ## Clean build artifacts
 
 ##@ Build
 
-docker-build: ## Build Docker image
+docker-build: ## Build Docker image (traditional)
 	docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
 
-docker-push: ## Push Docker image
+docker-push: ## Push Docker image (traditional)
 	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
+
+release-snapshot: ## Build a snapshot release locally (no push)
+	$(GORELEASER) release --snapshot --clean
+
+release-test: ## Test the release process without publishing
+	$(GORELEASER) release --skip=publish --clean
+
+release: ## Create a release (use with git tags)
+	$(GORELEASER) release --clean
+
+release-dry-run: ## Dry run of release process
+	$(GORELEASER) release --skip=publish --skip=validate --clean
 
 ##@ Code Generation
 
@@ -84,6 +97,7 @@ generate-mocks: ## Generate mocks using mockery
 install-tools: ## Install development tools
 	$(GO) install github.com/onsi/ginkgo/v2/ginkgo@latest
 	$(GO) install github.com/vektra/mockery/v2@latest
+	$(GO) install github.com/goreleaser/goreleaser@latest
 	@echo "Development tools installed"
 
 setup-envtest: ## Install setup-envtest for integration tests
