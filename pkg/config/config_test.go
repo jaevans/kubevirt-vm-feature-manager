@@ -14,13 +14,17 @@ var _ = Describe("Config", func() {
 	var originalEnv map[string]string
 
 	BeforeEach(func() {
-		// Save original environment
+		// Save original environment - include ALL environment variables that config uses
 		originalEnv = make(map[string]string)
 		envVars := []string{
 			"PORT", "CERT_DIR", "LOG_LEVEL", "ERROR_HANDLING_MODE",
 			"ADD_TRACKING_ANNOTATIONS", "WEBHOOK_VERSION",
 			"FEATURE_NESTED_VIRT_ENABLED", "FEATURE_NESTED_VIRT_AUTO_DETECT",
-			"FEATURE_VBIOS_ENABLED", "VBIOS_SIDECAR_IMAGE",
+			"FEATURE_VBIOS_ENABLED", "VBIOS_SIDECAR_IMAGE", "VBIOS_SIDECAR_IMAGE_OVERRIDE",
+			"VBIOS_SIDECAR_VERSION", "VBIOS_SOURCE_CM_KEY", "VBIOS_HOOK_CM_TEMPLATE",
+			"VBIOS_PATH", "VBIOS_VALIDATE_TOOLS", "VBIOS_REQUIRED_TOOLS",
+			"FEATURE_PCI_PASSTHROUGH_ENABLED", "PCI_PASSTHROUGH_ERROR_HANDLING", "PCI_MAX_DEVICES",
+			"FEATURE_GPU_DEVICE_PLUGIN_ENABLED", "GPU_ALLOWED_PLUGINS",
 		}
 		for _, key := range envVars {
 			originalEnv[key] = os.Getenv(key)

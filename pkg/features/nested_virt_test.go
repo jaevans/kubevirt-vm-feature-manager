@@ -263,5 +263,29 @@ var _ = Describe("NestedVirtualization", func() {
 				Expect(featureNames).To(ContainElement("some-other-feature"))
 			})
 		})
+
+		Context("with AutoDetectCPU disabled", func() {
+			BeforeEach(func() {
+				cfg := &config.NestedVirtConfig{
+					Enabled:       true,
+					AutoDetectCPU: false,
+				}
+				feature = features.NewNestedVirtualization(cfg)
+				vm.Annotations = map[string]string{
+					utils.AnnotationNestedVirt: "enabled",
+				}
+			})
+
+			It("should use default CPU feature (SVM)", func() {
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Applied).To(BeTrue())
+
+				// Should default to SVM when auto-detect is off
+				Expect(vm.Spec.Template.Spec.Domain.CPU).ToNot(BeNil())
+				Expect(vm.Spec.Template.Spec.Domain.CPU.Features).To(HaveLen(1))
+				Expect(vm.Spec.Template.Spec.Domain.CPU.Features[0].Name).To(Equal(utils.CPUFeatureSVM))
+			})
+		})
 	})
 })

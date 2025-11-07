@@ -82,14 +82,14 @@ func (m *Mutator) Handle(ctx context.Context, req *admissionv1.AdmissionRequest)
 		// Validate
 		if err := feature.Validate(ctx, mutatedVM, m.client); err != nil {
 			logger.Error(err, "Feature validation failed", "feature", feature.Name())
-			return m.handleError(feature.Name(), err), nil
+			return m.handleError(feature.Name(), err, vm, mutatedVM), nil
 		}
 
 		// Apply
 		result, err := feature.Apply(ctx, mutatedVM, m.client)
 		if err != nil {
 			logger.Error(err, "Feature application failed", "feature", feature.Name())
-			return m.handleError(feature.Name(), err), nil
+			return m.handleError(feature.Name(), err, vm, mutatedVM), nil
 		}
 
 		if result.Applied {
@@ -192,7 +192,7 @@ func (m *Mutator) createPatch(original, mutated *kubevirtv1.VirtualMachine) ([]b
 }
 
 // handleError handles feature errors based on error handling mode
-func (m *Mutator) handleError(featureName string, err error) *admissionv1.AdmissionResponse {
+func (m *Mutator) handleError(featureName string, err error, originalVM, mutatedVM *kubevirtv1.VirtualMachine) *admissionv1.AdmissionResponse {
 	switch m.config.ErrorHandlingMode {
 	case utils.ErrorHandlingReject:
 		return m.errorResponse(fmt.Errorf("feature %s failed: %w", featureName, err))
@@ -200,10 +200,51 @@ func (m *Mutator) handleError(featureName string, err error) *admissionv1.Admiss
 		// Log error but allow admission
 		return m.allowResponse(fmt.Sprintf("Feature %s failed but admission allowed: %v", featureName, err))
 	case utils.ErrorHandlingStripLabel:
-		// TODO: Implement label stripping
-		return m.allowResponse(fmt.Sprintf("Feature %s failed, label stripped", featureName))
+		// Strip the feature annotation and allow admission with patch
+		if mutatedVM.Annotations != nil {
+			// Remove the feature-specific annotation based on feature name
+			annotationKey := m.getFeatureAnnotationKey(featureName)
+			if annotationKey != "" {
+				delete(mutatedVM.Annotations, annotationKey)
+			}
+		}
+
+		// Create patch with the stripped annotation
+		patch, patchErr := m.createPatch(originalVM, mutatedVM)
+		if patchErr != nil {
+			// If we can't create a patch, fall back to allowing without mutation
+			return m.allowResponse(fmt.Sprintf("Feature %s failed, annotation strip failed: %v", featureName, patchErr))
+		}
+
+		return &admissionv1.AdmissionResponse{
+			Allowed: true,
+			Patch:   patch,
+			PatchType: func() *admissionv1.PatchType {
+				pt := admissionv1.PatchTypeJSONPatch
+				return &pt
+			}(),
+			Result: &metav1.Status{
+				Message: fmt.Sprintf("Feature %s failed, annotation %s stripped and admission allowed", featureName, m.getFeatureAnnotationKey(featureName)),
+			},
+		}
 	default:
 		return m.errorResponse(err)
+	}
+}
+
+// getFeatureAnnotationKey returns the annotation key for a given feature name
+func (m *Mutator) getFeatureAnnotationKey(featureName string) string {
+	switch featureName {
+	case utils.FeatureNestedVirt:
+		return utils.AnnotationNestedVirt
+	case utils.FeatureGpuDevicePlugin:
+		return utils.AnnotationGpuDevicePlugin
+	case utils.FeaturePciPassthrough:
+		return utils.AnnotationPciPassthrough
+	case utils.FeatureVBiosInjection:
+		return utils.AnnotationVBiosInjection
+	default:
+		return ""
 	}
 }
 

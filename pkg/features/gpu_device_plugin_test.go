@@ -75,7 +75,7 @@ var _ = Describe("GpuDevicePlugin", func() {
 	Describe("Validate", func() {
 		Context("when annotation is not present", func() {
 			It("should return nil", func() {
-				_, err := feature.Apply(ctx, vm, nil)
+				err := feature.Validate(ctx, vm, nil)
 				Expect(err).To(Succeed())
 			})
 		})
