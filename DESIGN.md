@@ -8,6 +8,28 @@ The KubeVirt VM Feature Manager is a **mutating admission webhook** for Harveste
 **Primary Language**: Go 1.25  
 **Development Approach**: Test-Driven Development (TDD) with Ginkgo v2 + Gomega
 
+## Build & Release Standards
+
+### Zero-Deprecation Policy
+
+**Principle**: Net-new work must not introduce deprecated configurations or patterns.
+
+**Rationale**:
+- Deprecated features signal technical debt from day one
+- Modern tooling offers better alternatives
+- Reduces future maintenance burden
+- Demonstrates commitment to current best practices
+
+**Application**:
+- Build configurations (GoReleaser, Docker, etc.) must use current, non-deprecated syntax
+- Dependencies should be on supported versions
+- CI/CD pipelines use actively maintained actions/tools
+- When replacing tools, migrate to modern equivalents, not deprecated legacy patterns
+
+**Exceptions**:
+- External dependencies that haven't yet provided migration paths (document as known issue)
+- Explicitly documented temporary workarounds with removal timeline
+
 ## Architecture
 
 ### Webhook Type: Mutating Admission Webhook

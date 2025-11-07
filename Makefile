@@ -10,6 +10,9 @@ GOLANGCI_LINT=golangci-lint
 MOCKERY=mockery
 GORELEASER=goreleaser
 
+# Get the repository owner from git remote (for local builds)
+GITHUB_REPOSITORY_OWNER?=$(shell git remote get-url origin 2>/dev/null | sed -n 's#.*github\.com[:/]\([^/]*\)/.*#\1#p' || echo "jaevans")
+
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
@@ -75,16 +78,16 @@ docker-push: ## Push Docker image (traditional)
 	docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
 
 release-snapshot: ## Build a snapshot release locally (no push)
-	$(GORELEASER) release --snapshot --clean
+	GITHUB_REPOSITORY_OWNER=$(GITHUB_REPOSITORY_OWNER) $(GORELEASER) release --snapshot --clean --skip=sbom,sign
 
 release-test: ## Test the release process without publishing
-	$(GORELEASER) release --skip=publish --clean
+	GITHUB_REPOSITORY_OWNER=$(GITHUB_REPOSITORY_OWNER) $(GORELEASER) release --skip=publish --clean
 
 release: ## Create a release (use with git tags)
-	$(GORELEASER) release --clean
+	GITHUB_REPOSITORY_OWNER=$(GITHUB_REPOSITORY_OWNER) $(GORELEASER) release --clean
 
-release-dry-run: ## Dry run of release process
-	$(GORELEASER) release --skip=publish --skip=validate --clean
+release-dry-run: ## Validate the release configuration
+	GITHUB_REPOSITORY_OWNER=$(GITHUB_REPOSITORY_OWNER) $(GORELEASER) check
 
 ##@ Code Generation
 
@@ -97,7 +100,28 @@ generate-mocks: ## Generate mocks using mockery
 install-tools: ## Install development tools
 	$(GO) install github.com/onsi/ginkgo/v2/ginkgo@latest
 	$(GO) install github.com/vektra/mockery/v2@latest
-	$(GO) install github.com/goreleaser/goreleaser@latest
+	@echo "Installing goreleaser..."
+	@if ! command -v goreleaser >/dev/null 2>&1; then \
+		echo "Downloading goreleaser binary..."; \
+		GOBIN=$(shell go env GOPATH)/bin go install github.com/goreleaser/goreleaser/v2@latest || \
+		echo "Warning: 'go install' failed, trying binary download..."; \
+		mkdir -p /tmp/goreleaser && cd /tmp/goreleaser && \
+		curl -sL https://github.com/goreleaser/goreleaser/releases/latest/download/goreleaser_Linux_x86_64.tar.gz | tar xz && \
+		mv goreleaser $(shell go env GOPATH)/bin/ && \
+		echo "goreleaser installed to $(shell go env GOPATH)/bin/goreleaser" || \
+		echo "Failed to install goreleaser. Install manually: https://goreleaser.com/install/"; \
+	else \
+		echo "goreleaser already installed at $$(which goreleaser)"; \
+	fi
+	@echo "Installing ko..."
+	@if ! command -v ko >/dev/null 2>&1; then \
+		echo "Installing ko via go install..."; \
+		GOBIN=$(shell go env GOPATH)/bin $(GO) install github.com/google/ko@latest && \
+		echo "ko installed to $(shell go env GOPATH)/bin/ko" || \
+		echo "Failed to install ko. Install manually: https://ko.build/install/"; \
+	else \
+		echo "ko already installed at $$(which ko)"; \
+	fi
 	@echo "Development tools installed"
 
 setup-envtest: ## Install setup-envtest for integration tests
