@@ -1,0 +1,32 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "vm-feature-manager.fullname" . }}
+  labels:
+    {{- include "vm-feature-manager.labels" . | nindent 4 }}
+  {{- if .Values.certificates.certManager.enabled }}
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "vm-feature-manager.certificateName" . }}
+  {{- end }}
+webhooks:
+  - name: vm-feature-manager.{{ .Release.Namespace }}.svc
+    admissionReviewVersions: ["v1", "v1beta1"]
+    clientConfig:
+      service:
+        name: {{ include "vm-feature-manager.webhookServiceName" . }}
+        namespace: {{ .Release.Namespace }}
+        path: /mutate
+      {{- if not .Values.certificates.certManager.enabled }}
+      caBundle: {{ .Values.certificates.manual.caCert }}
+      {{- end }}
+    failurePolicy: {{ .Values.webhook.failurePolicy }}
+    matchPolicy: {{ .Values.webhook.matchPolicy }}
+    rules:
+      - apiGroups: ["kubevirt.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["virtualmachines"]
+        scope: "*"
+    sideEffects: {{ .Values.webhook.sideEffects }}
+    timeoutSeconds: {{ .Values.webhook.timeoutSeconds }}
+    reinvocationPolicy: {{ .Values.webhook.reinvocationPolicy }}

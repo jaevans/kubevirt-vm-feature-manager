@@ -1,0 +1,29 @@
+{{- if .Values.certificates.certManager.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "vm-feature-manager.certificateName" . }}
+  labels:
+    {{- include "vm-feature-manager.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "vm-feature-manager.certificateSecretName" . }}
+  duration: {{ .Values.certificates.certManager.duration }}
+  renewBefore: {{ .Values.certificates.certManager.renewBefore }}
+  issuerRef:
+    {{- if .Values.certificates.certManager.createIssuer }}
+    kind: Issuer
+    name: {{ include "vm-feature-manager.issuerName" . }}
+    {{- else }}
+    kind: {{ .Values.certificates.certManager.issuerKind }}
+    name: {{ .Values.certificates.certManager.issuerName }}
+    {{- end }}
+  dnsNames:
+    - {{ include "vm-feature-manager.webhookServiceName" . }}
+    - {{ include "vm-feature-manager.webhookServiceName" . }}.{{ .Release.Namespace }}
+    - {{ include "vm-feature-manager.webhookServiceName" . }}.{{ .Release.Namespace }}.svc
+    - {{ include "vm-feature-manager.webhookServiceName" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+{{- end }}

@@ -1,0 +1,179 @@
+# Default values for vm-feature-manager
+
+# Number of webhook replicas for high availability
+replicaCount: 2
+
+image:
+  repository: ghcr.io/jaevans/kubevirt-vm-feature-manager
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 443
+  targetPort: 8443
+
+# Webhook server configuration
+webhook:
+  # Port the webhook server listens on
+  port: 8443
+  # Directory where TLS certificates are mounted
+  certDir: /etc/webhook/certs
+  
+  # Webhook failure policy: Fail or Ignore
+  failurePolicy: Fail
+  
+  # Match policy for webhook
+  matchPolicy: Equivalent
+  
+  # Timeout for webhook calls (in seconds)
+  timeoutSeconds: 10
+  
+  # Webhook scope: Namespaced or Cluster
+  sideEffects: None
+  
+  # Reinvocation policy
+  reinvocationPolicy: Never
+
+# Certificate management
+certificates:
+  # Use cert-manager to automatically provision certificates
+  certManager:
+    enabled: true
+    # Create a self-signed Issuer in the namespace (recommended for most use cases)
+    createIssuer: true
+    # If createIssuer is false, you can specify an existing issuer
+    issuerKind: ClusterIssuer
+    issuerName: my-cluster-issuer
+    # Certificate duration
+    duration: 2160h # 90 days
+    renewBefore: 360h # 15 days
+  
+  # Manual certificate configuration (if cert-manager is disabled)
+  manual:
+    # Provide base64-encoded certificate and key
+    tlsCert: ""
+    tlsKey: ""
+    caCert: ""
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 200m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# Liveness probe configuration
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: webhook
+    scheme: HTTPS
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+# Readiness probe configuration
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: webhook
+    scheme: HTTPS
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  successThreshold: 1
+  failureThreshold: 3
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Node selection
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: vm-feature-manager
+        topologyKey: kubernetes.io/hostname
+
+# Priority class for webhook pods
+priorityClassName: "system-cluster-critical"
+
+# Environment variables
+env: []
+
+# Feature configuration (maps to webhook behavior)
+features:
+  # Enable nested virtualization support
+  nestedVirtualization:
+    enabled: true
+  
+  # Enable GPU device plugin configuration
+  gpuDevicePlugin:
+    enabled: true
+  
+  # Enable vBIOS injection for iGPU passthrough
+  vbiosInjection:
+    enabled: true
+    # Default ConfigMap name for vBIOS data
+    defaultConfigMap: "vbios-data"
+  
+  # Enable PCI device passthrough
+  pciPassthrough:
+    enabled: true
+
+# Error handling mode for webhook
+errorHandling:
+  # Mode: StripLabel or KeepLabel
+  mode: StripLabel
+
+# Monitoring configuration
+metrics:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s

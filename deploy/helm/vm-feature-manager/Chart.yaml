@@ -1,0 +1,17 @@
+apiVersion: v2
+name: vm-feature-manager
+description: A Helm chart for KubeVirt VM Feature Manager - Mutating admission webhook for automated VM feature configuration
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - kubevirt
+  - webhook
+  - virtualization
+  - harvester
+home: https://github.com/jaevans/kubevirt-vm-feature-manager
+sources:
+  - https://github.com/jaevans/kubevirt-vm-feature-manager
+maintainers:
+  - name: James Evans
+    url: https://github.com/jaevans

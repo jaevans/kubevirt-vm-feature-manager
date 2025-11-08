@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vm-feature-manager.webhookServiceName" . }}
+  labels:
+    {{- include "vm-feature-manager.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: webhook
+      protocol: TCP
+      name: https
+  selector:
+    {{- include "vm-feature-manager.selectorLabels" . | nindent 4 }}

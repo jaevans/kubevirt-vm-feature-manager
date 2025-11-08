@@ -1,0 +1,64 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+The KubeVirt VM Feature Manager webhook has been deployed to namespace: {{ .Release.Namespace }}
+
+To verify the deployment:
+
+  kubectl --namespace {{ .Release.Namespace }} get deployment {{ include "vm-feature-manager.fullname" . }}
+  kubectl --namespace {{ .Release.Namespace }} get pods -l "app.kubernetes.io/name={{ include "vm-feature-manager.name" . }}"
+
+To check webhook configuration:
+
+  kubectl get mutatingwebhookconfigurations {{ include "vm-feature-manager.fullname" . }}
+
+{{- if .Values.certificates.certManager.enabled }}
+
+Certificate management is handled by cert-manager.
+To check certificate status:
+
+  kubectl --namespace {{ .Release.Namespace }} get certificate {{ include "vm-feature-manager.certificateName" . }}
+  kubectl --namespace {{ .Release.Namespace }} describe certificate {{ include "vm-feature-manager.certificateName" . }}
+
+{{- else }}
+
+⚠️  WARNING: You are using manual certificate management.
+Make sure the certificates are valid and will be renewed before expiration.
+
+{{- end }}
+
+To test the webhook, create a VirtualMachine with feature annotations:
+
+  kubectl apply -f - <<EOF
+  apiVersion: kubevirt.io/v1
+  kind: VirtualMachine
+  metadata:
+    name: test-vm
+    annotations:
+      vm-feature-manager.io/nested-virt: "enabled"
+  spec:
+    running: false
+    template:
+      spec:
+        domain:
+          devices:
+            disks:
+            - name: containerdisk
+              disk:
+                bus: virtio
+          resources:
+            requests:
+              memory: 1Gi
+        volumes:
+        - name: containerdisk
+          containerDisk:
+            image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+  EOF
+
+Then check if the CPU features were added:
+
+  kubectl get vm test-vm -o yaml | grep -A 5 "cpu:"
+
+For more information and examples, visit:
+  https://github.com/jaevans/kubevirt-vm-feature-manager
