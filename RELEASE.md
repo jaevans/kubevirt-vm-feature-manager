@@ -21,9 +21,12 @@ This project uses [GoReleaser](https://goreleaser.com/) for automated releases.
    - Build binaries for multiple platforms (amd64, arm64, armv7)
    - Create multi-arch Docker images
    - Push images to GitHub Container Registry
-   - Generate SBOMs and checksums
-   - Sign artifacts with Cosign
+   - Generate SBOMs (Software Bill of Materials) using Syft
+   - Generate checksums
+   - Sign artifacts with Cosign (keyless OIDC)
    - Create a GitHub release with changelog
+
+   **Note:** The release workflow automatically installs required tools (GoReleaser, Cosign, Syft).
 
 ### Testing Releases Locally
 

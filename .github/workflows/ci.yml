@@ -40,8 +40,14 @@ jobs:
       - name: Install Ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo
 
-      - name: Run tests
+      - name: Install setup-envtest
+        run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+      - name: Run unit tests
         run: make test
+
+      - name: Run integration tests
+        run: make test-integration
 
       - name: Run linters
         uses: golangci/golangci-lint-action@v9
