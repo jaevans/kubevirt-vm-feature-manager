@@ -131,9 +131,6 @@ docker_signs:
 
 # Release notes
 release:
-  github:
-    owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
-    name: "{{ .ProjectName }}"
   draft: false
   prerelease: auto
   name_template: "{{.ProjectName}} {{.Version}}"
