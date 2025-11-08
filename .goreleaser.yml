@@ -3,9 +3,9 @@ version: 2
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
+    # Clean up go.mod and go.sum to ensure they're up to date
     - go mod tidy
-    # You may remove this if you don't need to generate anything before build
+    # Run code generators
     - go generate ./...
 
 builds:
@@ -78,8 +78,10 @@ kos:
   - id: webhook
     build: webhook
     base_image: gcr.io/distroless/static-debian12:nonroot
+    # Repositories to push to. Templates are NOT supported here.
+    # Set dynamically via KO_DOCKER_REPO in CI, or use literal repository name.
     repositories:
-      - ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{ .ProjectName }}
+      - "ghcr.io/jaevans/kubevirt-vm-feature-manager"
     tags:
       - "{{ .Version }}"
       - latest

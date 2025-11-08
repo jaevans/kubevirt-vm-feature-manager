@@ -11,13 +11,24 @@ This project uses [GoReleaser](https://goreleaser.com/) for automated releases.
    make test
    ```
 
-2. **Create and push a version tag:**
+2. **Ensure dependencies are clean:**
+   ```bash
+   go mod tidy
+   ```
+   
+   If this modifies `go.mod` or `go.sum`, commit the changes:
+   ```bash
+   git add go.mod go.sum
+   git commit -m "chore: tidy go modules"
+   ```
+
+3. **Create and push a version tag:**
    ```bash
    git tag -a v1.0.0 -m "Release v1.0.0"
    git push origin v1.0.0
    ```
 
-3. **GitHub Actions will automatically:**
+4. **GitHub Actions will automatically:**
    - Build binaries for multiple platforms (amd64, arm64, armv7)
    - Create multi-arch Docker images
    - Push images to GitHub Container Registry
