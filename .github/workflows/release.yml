@@ -37,7 +37,7 @@ jobs:
 
       # Install Syft for SBOM (Software Bill of Materials) generation
       - name: Install Syft
-        uses: anchore/sbom-action/download-syft@v0.20.9
+        uses: anchore/sbom-action/download-syft@v0.20.10
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
