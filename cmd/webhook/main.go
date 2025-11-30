@@ -41,10 +41,16 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var showVersion bool
+	var port int
+	var certDir string
+	var errorHandling string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
 	flag.BoolVar(&showVersion, "version", false, "Show version information and exit.")
+	flag.IntVar(&port, "port", 0, "The port the webhook server binds to (overrides PORT env var).")
+	flag.StringVar(&certDir, "cert-dir", "", "The directory containing TLS certificates (overrides CERT_DIR env var).")
+	flag.StringVar(&errorHandling, "error-handling", "", "Error handling mode: 'reject' or 'allow' (overrides ERROR_HANDLING_MODE env var).")
 	flag.Parse()
 
 	// Show version and exit if requested
@@ -65,6 +71,18 @@ func main() {
 
 	// Load configuration
 	cfg := config.LoadConfig()
+
+	// Override config with command-line flags if provided
+	if port != 0 {
+		cfg.Port = port
+	}
+	if certDir != "" {
+		cfg.CertDir = certDir
+	}
+	if errorHandling != "" {
+		cfg.ErrorHandlingMode = errorHandling
+	}
+
 	logger.Info("Configuration loaded",
 		"port", cfg.Port,
 		"logLevel", cfg.LogLevel,
