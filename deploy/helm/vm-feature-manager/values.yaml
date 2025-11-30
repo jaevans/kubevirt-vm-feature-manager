@@ -78,7 +78,7 @@ certificates:
     createIssuer: true
     # If createIssuer is false, you can specify an existing issuer
     issuerKind: ClusterIssuer
-    issuerName: my-cluster-issuer
+    issuerName: kubevirt-vm-feature-manager-selfsigned-issuer
     # Certificate duration
     duration: 2160h # 90 days
     renewBefore: 360h # 15 days
