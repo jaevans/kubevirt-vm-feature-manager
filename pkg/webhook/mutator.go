@@ -59,6 +59,9 @@ func (m *Mutator) Handle(ctx context.Context, req *admissionv1.AdmissionRequest)
 		"namespace", vm.Namespace,
 		"operation", req.Operation)
 
+	// Log detailed feature detection information for debugging
+	m.logFeatureDetection(ctx, vm)
+
 	// Check if any features are enabled
 	if !m.hasEnabledFeatures(vm) {
 		logger.Info("No features enabled for VM", "vm", vm.Name)
@@ -149,6 +152,30 @@ func (m *Mutator) hasEnabledFeatures(vm *kubevirtv1.VirtualMachine) bool {
 		}
 	}
 	return false
+}
+
+// logFeatureDetection logs detailed information about feature detection for debugging
+func (m *Mutator) logFeatureDetection(ctx context.Context, vm *kubevirtv1.VirtualMachine) {
+	logger := log.FromContext(ctx).V(1) // V(1) = debug level
+
+	annotations := vm.GetAnnotations()
+	if annotations == nil {
+		logger.Info("VM has no annotations", "vm", vm.Name)
+		return
+	}
+
+	logger.Info("VM annotations for feature detection",
+		"vm", vm.Name,
+		"annotationCount", len(annotations),
+		"annotations", annotations)
+
+	for _, feature := range m.features {
+		enabled := feature.IsEnabled(vm)
+		logger.Info("Feature detection result",
+			"feature", feature.Name(),
+			"enabled", enabled,
+			"vm", vm.Name)
+	}
 }
 
 // createPatch creates a JSON patch between original and mutated VM

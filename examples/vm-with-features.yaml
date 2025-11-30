@@ -6,7 +6,7 @@ metadata:
   namespace: default
   annotations:
     # Enable nested virtualization
-    vm-feature-manager.io/nested-virtualization: "enabled"
+    vm-feature-manager.io/nested-virt: "enabled"
 spec:
   running: false
   template:
@@ -72,7 +72,7 @@ metadata:
   namespace: default
   annotations:
     # Nested virtualization
-    vm-feature-manager.io/nested-virtualization: "enabled"
+    vm-feature-manager.io/nested-virt: "enabled"
     # vBIOS injection
     vm-feature-manager.io/vbios-configmap: "my-igpu-vbios"
     # PCI passthrough

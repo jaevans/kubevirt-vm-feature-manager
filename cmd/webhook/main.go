@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,6 +46,7 @@ func main() {
 	var port int
 	var certDir string
 	var errorHandling string
+	var logLevel string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
@@ -51,6 +54,7 @@ func main() {
 	flag.IntVar(&port, "port", 0, "The port the webhook server binds to (overrides PORT env var).")
 	flag.StringVar(&certDir, "cert-dir", "", "The directory containing TLS certificates (overrides CERT_DIR env var).")
 	flag.StringVar(&errorHandling, "error-handling", "", "Error handling mode: 'reject' or 'allow' (overrides ERROR_HANDLING_MODE env var).")
+	flag.StringVar(&logLevel, "log-level", "", "Log level: 'debug', 'info', 'warn', 'error' (overrides LOG_LEVEL env var).")
 	flag.Parse()
 
 	// Show version and exit if requested
@@ -59,17 +63,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Set up logger
-	log.SetLogger(zap.New(zap.UseDevMode(true)))
-	logger := log.Log.WithName("vm-feature-manager")
-	ctx := log.IntoContext(context.Background(), logger)
-
-	logger.Info("Starting VM Feature Manager Webhook",
-		"version", version,
-		"commit", commit,
-		"buildDate", date)
-
-	// Load configuration
+	// Load configuration first to get defaults
 	cfg := config.LoadConfig()
 
 	// Override config with command-line flags if provided
@@ -82,6 +76,32 @@ func main() {
 	if errorHandling != "" {
 		cfg.ErrorHandlingMode = errorHandling
 	}
+	if logLevel != "" {
+		cfg.LogLevel = logLevel
+	}
+
+	// Set up logger with configured log level
+	zapOpts := []zap.Opts{}
+	switch strings.ToLower(cfg.LogLevel) {
+	case "debug":
+		zapOpts = append(zapOpts, zap.UseDevMode(true), zap.Level(zapcore.DebugLevel))
+	case "info":
+		zapOpts = append(zapOpts, zap.UseDevMode(false), zap.Level(zapcore.InfoLevel))
+	case "warn", "warning":
+		zapOpts = append(zapOpts, zap.UseDevMode(false), zap.Level(zapcore.WarnLevel))
+	case "error":
+		zapOpts = append(zapOpts, zap.UseDevMode(false), zap.Level(zapcore.ErrorLevel))
+	default:
+		zapOpts = append(zapOpts, zap.UseDevMode(false), zap.Level(zapcore.InfoLevel))
+	}
+	log.SetLogger(zap.New(zapOpts...))
+	logger := log.Log.WithName("vm-feature-manager")
+	ctx := log.IntoContext(context.Background(), logger)
+
+	logger.Info("Starting VM Feature Manager Webhook",
+		"version", version,
+		"commit", commit,
+		"buildDate", date)
 
 	logger.Info("Configuration loaded",
 		"port", cfg.Port,

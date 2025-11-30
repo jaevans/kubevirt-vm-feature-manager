@@ -1,6 +1,8 @@
 // Package utils provides utility constants and helper functions for the VM Feature Manager.
 package utils
 
+import "strings"
+
 const (
 	// AnnotationNestedVirt enables nested virtualization for a VM
 	AnnotationNestedVirt = "vm-feature-manager.io/nested-virt"
@@ -63,3 +65,14 @@ const (
 	// ErrorHandlingStripLabel removes the failing feature annotation and allows the VM through
 	ErrorHandlingStripLabel = "strip-label"
 )
+
+// IsTruthyValue checks if a string value represents a boolean "true"
+// Accepts: "true", "enabled", "yes", "1" (case-insensitive)
+func IsTruthyValue(value string) bool {
+	switch strings.ToLower(value) {
+	case "true", "enabled", "yes", "1":
+		return true
+	default:
+		return false
+	}
+}

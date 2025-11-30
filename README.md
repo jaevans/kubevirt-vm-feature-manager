@@ -22,7 +22,7 @@ metadata:
   name: my-vm
   annotations:
     # Enable nested virtualization
-    vm-feature-manager.io/nested-virtualization: "enabled"
+    vm-feature-manager.io/nested-virt: "enabled"
     
     # Enable vBIOS injection with PCI passthrough
     vm-feature-manager.io/vbios-configmap: "my-igpu-vbios"

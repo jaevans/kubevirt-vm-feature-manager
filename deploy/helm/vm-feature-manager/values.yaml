@@ -9,6 +9,10 @@ image:
   # Overrides the image tag whose default is the chart appVersion
   tag: ""
 
+# Log level: debug, info, warn, error
+# Use 'debug' to see detailed feature detection information
+logLevel: info
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""

@@ -42,7 +42,7 @@ func (f *NestedVirtualization) IsEnabled(vm *kubevirtv1.VirtualMachine) bool {
 	}
 
 	value, exists := annotations[utils.AnnotationNestedVirt]
-	return exists && value == "enabled"
+	return exists && utils.IsTruthyValue(value)
 }
 
 // Apply enables nested virtualization by adding CPU features
