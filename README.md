@@ -36,6 +36,55 @@ spec:
 
 ### Installation
 
+#### Using Helm (Recommended)
+
+```bash
+helm install vm-feature-manager oci://ghcr.io/jaevans/kubevirt-vm-feature-manager/charts/vm-feature-manager \
+  --namespace kubevirt \
+  --create-namespace
+```
+
+**From Git Repository:**
+
+```bash
+git clone https://github.com/jaevans/kubevirt-vm-feature-manager.git
+cd kubevirt-vm-feature-manager
+
+helm install vm-feature-manager ./deploy/helm/vm-feature-manager \
+  --namespace kubevirt \
+  --create-namespace
+```
+
+### Upgrading
+
+To upgrade to a newer version:
+
+```bash
+# Upgrade to the latest version
+helm upgrade vm-feature-manager oci://ghcr.io/jaevans/kubevirt-vm-feature-manager/charts/vm-feature-manager \
+  --namespace kubevirt
+
+# Upgrade to a specific version
+helm upgrade vm-feature-manager oci://ghcr.io/jaevans/kubevirt-vm-feature-manager/charts/vm-feature-manager \
+  --namespace kubevirt \
+  --version 0.5.0
+```
+
+To change configuration during upgrade:
+
+```bash
+helm upgrade vm-feature-manager oci://ghcr.io/jaevans/kubevirt-vm-feature-manager/charts/vm-feature-manager \
+  --namespace kubevirt \
+  --set logLevel=debug \
+  --set replicaCount=3
+```
+
+### Uninstalling
+
+```bash
+helm uninstall vm-feature-manager --namespace kubevirt
+```
+
 #### Using Container Images
 
 Multi-arch container images are available on GitHub Container Registry:
@@ -49,16 +98,6 @@ docker pull ghcr.io/jaevans/kubevirt-vm-feature-manager:v1.0.0
 ```
 
 Supported architectures: `linux/amd64`, `linux/arm64`, `linux/arm/v7`
-
-#### Using Helm
-
-Install via Helm:
-
-```bash
-helm install vm-feature-manager ./deploy/helm/vm-feature-manager \
-  --namespace kubevirt \
-  --create-namespace
-```
 
 #### Using Pre-built Binaries
 

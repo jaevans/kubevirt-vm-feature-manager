@@ -9,6 +9,27 @@ This Helm chart deploys the KubeVirt VM Feature Manager, a mutating admission we
 - KubeVirt installed in the cluster
 - cert-manager (optional but recommended for automatic certificate management)
 
+## Installation Methods
+
+### From OCI Registry (Recommended)
+
+```bash
+helm install vm-feature-manager oci://ghcr.io/jaevans/kubevirt-vm-feature-manager/charts/vm-feature-manager \
+  --namespace vm-feature-manager \
+  --create-namespace
+```
+
+### From Git Repository
+
+```bash
+git clone https://github.com/jaevans/kubevirt-vm-feature-manager.git
+cd kubevirt-vm-feature-manager
+
+helm install vm-feature-manager ./deploy/helm/vm-feature-manager \
+  --namespace vm-feature-manager \
+  --create-namespace
+```
+
 ## Installing the Chart
 
 ### With cert-manager (Recommended)
@@ -94,25 +115,25 @@ helm install vm-feature-manager ./deploy/helm/vm-feature-manager \
 
 The following table lists the configurable parameters of the chart and their default values.
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `replicaCount` | Number of webhook replicas | `2` |
-| `image.repository` | Webhook image repository | `ghcr.io/jaevans/kubevirt-vm-feature-manager` |
-| `image.tag` | Image tag | Chart appVersion |
-| `image.pullPolicy` | Image pull policy | `IfNotPresent` |
-| `webhook.port` | Webhook server port | `8443` |
-| `webhook.certDir` | Certificate directory | `/etc/webhook/certs` |
-| `webhook.failurePolicy` | Webhook failure policy (Fail/Ignore) | `Fail` |
-| `webhook.timeoutSeconds` | Webhook timeout | `10` |
-| `certificates.certManager.enabled` | Use cert-manager | `true` |
-| `certificates.certManager.createIssuer` | Create a self-signed Issuer | `true` |
-| `certificates.certManager.issuerKind` | Issuer kind (if createIssuer=false) | `ClusterIssuer` |
-| `certificates.certManager.issuerName` | Issuer name (if createIssuer=false) | `my-cluster-issuer` |
-| `errorHandling.mode` | Error handling mode | `StripLabel` |
-| `resources.limits.cpu` | CPU limit | `200m` |
-| `resources.limits.memory` | Memory limit | `128Mi` |
-| `resources.requests.cpu` | CPU request | `100m` |
-| `resources.requests.memory` | Memory request | `64Mi` |
+| Parameter                               | Description                          | Default                                       |
+| --------------------------------------- | ------------------------------------ | --------------------------------------------- |
+| `replicaCount`                          | Number of webhook replicas           | `2`                                           |
+| `image.repository`                      | Webhook image repository             | `ghcr.io/jaevans/kubevirt-vm-feature-manager` |
+| `image.tag`                             | Image tag                            | Chart appVersion                              |
+| `image.pullPolicy`                      | Image pull policy                    | `IfNotPresent`                                |
+| `webhook.port`                          | Webhook server port                  | `8443`                                        |
+| `webhook.certDir`                       | Certificate directory                | `/etc/webhook/certs`                          |
+| `webhook.failurePolicy`                 | Webhook failure policy (Fail/Ignore) | `Fail`                                        |
+| `webhook.timeoutSeconds`                | Webhook timeout                      | `10`                                          |
+| `certificates.certManager.enabled`      | Use cert-manager                     | `true`                                        |
+| `certificates.certManager.createIssuer` | Create a self-signed Issuer          | `true`                                        |
+| `certificates.certManager.issuerKind`   | Issuer kind (if createIssuer=false)  | `ClusterIssuer`                               |
+| `certificates.certManager.issuerName`   | Issuer name (if createIssuer=false)  | `my-cluster-issuer`                           |
+| `errorHandling.mode`                    | Error handling mode                  | `StripLabel`                                  |
+| `resources.limits.cpu`                  | CPU limit                            | `200m`                                        |
+| `resources.limits.memory`               | Memory limit                         | `128Mi`                                       |
+| `resources.requests.cpu`                | CPU request                          | `100m`                                        |
+| `resources.requests.memory`             | Memory request                       | `64Mi`                                        |
 
 ## Features
 
