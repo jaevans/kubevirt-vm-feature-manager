@@ -78,6 +78,8 @@ kos:
   - id: webhook
     build: webhook
     base_image: gcr.io/distroless/static-debian12:nonroot
+    # Use bare image name without import path hash suffix
+    bare: true
     # Repositories to push to. Templates are NOT supported here.
     # Set dynamically via KO_DOCKER_REPO in CI, or use literal repository name.
     repositories:
