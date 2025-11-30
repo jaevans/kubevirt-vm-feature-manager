@@ -72,6 +72,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Ensure UID is always set (in case mutator helpers didn't set it)
+	if admissionResponse.UID == "" {
+		admissionResponse.UID = admissionReview.Request.UID
+	}
+
 	// Construct response
 	responseReview := &admissionv1.AdmissionReview{
 		TypeMeta: metav1.TypeMeta{

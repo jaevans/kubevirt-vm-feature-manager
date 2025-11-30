@@ -113,6 +113,78 @@ var _ = Describe("Handler", func() {
 			})
 		})
 
+		Context("with VM without feature annotations", func() {
+			It("should return allowed response with correct UID", func() {
+				// VM without any feature annotations - tests the allowResponse path
+				vm := &kubevirtv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						// No feature annotations
+						Annotations: map[string]string{
+							"some-other-annotation": "value",
+						},
+					},
+					Spec: kubevirtv1.VirtualMachineSpec{
+						Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: kubevirtv1.VirtualMachineInstanceSpec{
+								Domain: kubevirtv1.DomainSpec{},
+							},
+						},
+					},
+				}
+
+				vmBytes, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				admissionReview := &admissionv1.AdmissionReview{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "admission.k8s.io/v1",
+						Kind:       "AdmissionReview",
+					},
+					Request: &admissionv1.AdmissionRequest{
+						UID: "test-uid-no-features",
+						Kind: metav1.GroupVersionKind{
+							Group:   "kubevirt.io",
+							Version: "v1",
+							Kind:    "VirtualMachine",
+						},
+						Resource: metav1.GroupVersionResource{
+							Group:    "kubevirt.io",
+							Version:  "v1",
+							Resource: "virtualmachines",
+						},
+						Name:      "test-vm",
+						Namespace: "default",
+						Operation: admissionv1.Create,
+						Object: runtime.RawExtension{
+							Raw: vmBytes,
+						},
+					},
+				}
+
+				body, err := json.Marshal(admissionReview)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := httptest.NewRequest(http.MethodPost, "/mutate", bytes.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+
+				handler.ServeHTTP(recorder, req)
+
+				Expect(recorder.Code).To(Equal(http.StatusOK))
+				Expect(recorder.Header().Get("Content-Type")).To(Equal("application/json"))
+
+				var responseReview admissionv1.AdmissionReview
+				err = json.Unmarshal(recorder.Body.Bytes(), &responseReview)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(responseReview.Response).ToNot(BeNil())
+				// This is the critical check - UID must be set even when no features are enabled
+				Expect(string(responseReview.Response.UID)).To(Equal("test-uid-no-features"))
+				Expect(responseReview.Response.Allowed).To(BeTrue())
+			})
+		})
+
 		Context("with invalid JSON", func() {
 			It("should return bad request", func() {
 				req := httptest.NewRequest(http.MethodPost, "/mutate", bytes.NewReader([]byte("invalid json")))
