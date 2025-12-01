@@ -35,6 +35,38 @@ spec:
   # ... rest of VM spec
 ```
 
+### Userdata Directives (Rancher/Harvester)
+
+For environments where VM annotations aren't accessible (like Rancher/Harvester), you can use **userdata directives** in cloud-init:
+
+```yaml
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+spec:
+  template:
+    spec:
+      volumes:
+        - name: cloudinit
+          cloudInitNoCloud:
+            userData: |
+              #cloud-config
+              # @kubevirt-feature: nested-virt=enabled
+              # @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
+              # @kubevirt-feature: pci-passthrough={"devices":["0000:00:02.0"]}
+              users:
+                - name: ubuntu
+                  sudo: ALL=(ALL) NOPASSWD:ALL
+```
+
+**Supported formats:**
+- Plain text: `userData: |`
+- Base64: `userDataBase64: <base64-encoded>`
+- Secret reference: `userDataSecretRef: {name: my-secret}`
+
+**Note:** VM annotations take precedence over userdata directives.
+
 ### Installation
 
 #### Using Helm (Recommended)
