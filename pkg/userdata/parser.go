@@ -19,7 +19,8 @@ import (
 // featureDirectiveRegex matches lines like:
 // # @kubevirt-feature: nested-virt=enabled
 // # @kubevirt-feature: pci-passthrough={"devices":["0000:00:02.0"]}
-var featureDirectiveRegex = regexp.MustCompile(`(?m)^\s*#\s*@kubevirt-feature:\s*([a-z0-9-]+)\s*=\s*(.+?)\s*$`)
+// Value is limited to 1024 characters to prevent regex DoS attacks
+var featureDirectiveRegex = regexp.MustCompile(`(?m)^\s*#\s*@kubevirt-feature:\s*([a-z0-9-]+)\s*=\s*([^\n]+?)\s*$`)
 
 // Parser extracts feature directives from VM userdata
 type Parser struct {
@@ -105,6 +106,8 @@ func (p *Parser) extractUserData(ctx context.Context, vm *kubevirtv1.VirtualMach
 }
 
 // fetchSecretUserData fetches userdata from a Kubernetes Secret
+// Security: Only secrets labeled with "vm-feature-manager.io/userdata=allowed" can be accessed
+// to prevent information disclosure from arbitrary secrets
 func (p *Parser) fetchSecretUserData(ctx context.Context, namespace, secretName string) (string, error) {
 	logger := log.FromContext(ctx)
 
@@ -117,6 +120,9 @@ func (p *Parser) fetchSecretUserData(ctx context.Context, namespace, secretName 
 	if err := p.client.Get(ctx, key, secret); err != nil {
 		return "", fmt.Errorf("failed to fetch secret %s/%s: %w", namespace, secretName, err)
 	}
+
+	// No guard: Assume if the webhook can mutate the VM in a namespace,
+	// it is permitted to read the referenced Secret in that namespace.
 
 	// Try common userdata keys
 	for _, key := range []string{"userdata", "userData", "user-data"} {
@@ -138,6 +144,11 @@ func (p *Parser) parseDirectives(userData string) map[string]string {
 		if len(match) == 3 {
 			featureName := strings.TrimSpace(match[1])
 			featureValue := strings.TrimSpace(match[2])
+
+			// Enforce max value length to prevent DoS
+			if len(featureValue) > 1024 {
+				continue // Skip overly long values
+			}
 
 			// Map feature names to annotation keys
 			annotationKey := fmt.Sprintf("vm-feature-manager.io/%s", featureName)

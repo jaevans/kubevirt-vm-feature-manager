@@ -62,21 +62,27 @@ func (m *Mutator) Handle(ctx context.Context, req *admissionv1.AdmissionRequest)
 		"namespace", vm.Namespace,
 		"operation", req.Operation)
 
-	// Parse userdata for feature directives and merge into annotations
+	// Parse userdata for feature directives (non-fatal if fails)
 	userdataFeatures, err := m.userdataParser.ParseFeatures(ctx, vm)
 	if err != nil {
 		logger.Error(err, "Failed to parse userdata features")
-		// Non-fatal: continue with annotation-based features
+		// Non-fatal: continue with annotation-based features only
+		userdataFeatures = nil
 	} else if len(userdataFeatures) > 0 {
 		logger.Info("Found feature directives in userdata", "features", userdataFeatures)
-		
-		// Merge userdata features into annotations (annotations take precedence)
-		if vm.Annotations == nil {
-			vm.Annotations = make(map[string]string)
+	}
+
+	// Create a copy to mutate
+	mutatedVM := vm.DeepCopy()
+
+	// Merge userdata features into mutated VM's annotations (annotations take precedence)
+	if len(userdataFeatures) > 0 {
+		if mutatedVM.Annotations == nil {
+			mutatedVM.Annotations = make(map[string]string)
 		}
 		for key, value := range userdataFeatures {
-			if _, exists := vm.Annotations[key]; !exists {
-				vm.Annotations[key] = value
+			if _, exists := mutatedVM.Annotations[key]; !exists {
+				mutatedVM.Annotations[key] = value
 				logger.Info("Applied userdata feature directive", "key", key, "value", value)
 			} else {
 				logger.Info("Skipping userdata feature (annotation exists)", "key", key)
@@ -85,23 +91,20 @@ func (m *Mutator) Handle(ctx context.Context, req *admissionv1.AdmissionRequest)
 	}
 
 	// Log detailed feature detection information for debugging
-	m.logFeatureDetection(ctx, vm)
+	m.logFeatureDetection(ctx, mutatedVM)
 
-	// Check if any features are enabled
-	if !m.hasEnabledFeatures(vm) {
+	// Check if any features are enabled (check mutatedVM with merged userdata)
+	if !m.hasEnabledFeatures(mutatedVM) {
 		logger.Info("No features enabled for VM", "vm", vm.Name)
 		return m.allowResponse("No features requested"), nil
 	}
-
-	// Create a copy to mutate
-	mutatedVM := vm.DeepCopy()
 
 	// Apply features
 	appliedFeatures := []string{}
 	allAnnotations := make(map[string]string)
 
 	for _, feature := range m.features {
-		if !feature.IsEnabled(vm) {
+		if !feature.IsEnabled(mutatedVM) {
 			continue
 		}
 
