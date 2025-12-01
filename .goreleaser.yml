@@ -146,3 +146,11 @@ release:
     ```
     
     Supported architectures: `linux/amd64`, `linux/arm64`, `linux/arm/v7`
+    
+    ## Helm Chart
+    
+    Install via OCI registry:
+    
+    ```bash
+    helm install vm-feature-manager oci://ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/{{ .ProjectName }}/charts/vm-feature-manager --version {{ .Version }}
+    ```
