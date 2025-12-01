@@ -60,7 +60,7 @@ func (f *VBiosInjection) Validate(_ context.Context, vm *kubevirtv1.VirtualMachi
 
 	// Validate ConfigMap name is not empty
 	if configMapName == "" {
-		return fmt.Errorf("empty ConfigMap name in %s", utils.AnnotationVBiosInjection)
+		return fmt.Errorf("empty ConfigMap name in %s configuration key", utils.AnnotationVBiosInjection)
 	}
 
 	// Validate ConfigMap name length (max 253 characters per DNS subdomain spec)

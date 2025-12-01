@@ -23,6 +23,7 @@ import (
 
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/config"
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/features"
+	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/utils"
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/webhook"
 )
 
@@ -82,6 +83,10 @@ func main() {
 		cfg.LogLevel = logLevel
 	}
 	if configSource != "" {
+		if !utils.IsValidConfigSource(configSource) {
+			fmt.Fprintf(os.Stderr, "Invalid config-source value: %s (must be 'annotations' or 'labels')\n", configSource)
+			os.Exit(1)
+		}
 		cfg.ConfigSource = configSource
 	}
 

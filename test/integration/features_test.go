@@ -55,7 +55,7 @@ var _ = Describe("Integration Tests", func() {
 			})
 
 			// Apply mutations directly (not through admission webhook)
-			feature := features.NewNestedVirtualization(&cfg.Features.NestedVirtualization)
+			feature := features.NewNestedVirtualization(&cfg.Features.NestedVirtualization, utils.ConfigSourceAnnotations)
 			Expect(feature.IsEnabled(vm)).To(BeTrue())
 
 			err := feature.Validate(testCtx, vm, k8sClient)
@@ -94,7 +94,7 @@ var _ = Describe("Integration Tests", func() {
 			})
 
 			// Apply mutations
-			feature := features.NewPciPassthrough()
+			feature := features.NewPciPassthrough(utils.ConfigSourceAnnotations)
 			err := feature.Validate(testCtx, vm, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -114,7 +114,7 @@ var _ = Describe("Integration Tests", func() {
 				utils.AnnotationPciPassthrough: `{"devices":["0000:00:14.0","0000:03:00.0"]}`,
 			})
 
-			feature := features.NewPciPassthrough()
+			feature := features.NewPciPassthrough(utils.ConfigSourceAnnotations)
 			_, err := feature.Apply(testCtx, vm, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -151,7 +151,7 @@ var _ = Describe("Integration Tests", func() {
 				utils.AnnotationVBiosInjection: "test-vbios",
 			})
 
-			feature := features.NewVBiosInjection()
+			feature := features.NewVBiosInjection(utils.ConfigSourceAnnotations)
 			err := feature.Validate(testCtx, vm, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -179,7 +179,7 @@ var _ = Describe("Integration Tests", func() {
 				utils.AnnotationVBiosInjection: "Invalid_Name_With_Underscores!",
 			})
 
-			feature := features.NewVBiosInjection()
+			feature := features.NewVBiosInjection(utils.ConfigSourceAnnotations)
 			err := feature.Validate(testCtx, vm, k8sClient)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("invalid ConfigMap name"))
@@ -192,7 +192,7 @@ var _ = Describe("Integration Tests", func() {
 				utils.AnnotationGpuDevicePlugin: "nvidia.com/gpu",
 			})
 
-			feature := features.NewGpuDevicePlugin()
+			feature := features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
 			err := feature.Validate(testCtx, vm, k8sClient)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -214,7 +214,7 @@ var _ = Describe("Integration Tests", func() {
 					utils.AnnotationGpuDevicePlugin: vendor,
 				})
 
-				feature := features.NewGpuDevicePlugin()
+				feature := features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
 				_, err := feature.Apply(testCtx, vm, k8sClient)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -257,10 +257,10 @@ var _ = Describe("Integration Tests", func() {
 
 			// Apply all features
 			allFeatures := []features.Feature{
-				features.NewNestedVirtualization(&cfg.Features.NestedVirtualization),
-				features.NewPciPassthrough(),
-				features.NewVBiosInjection(),
-				features.NewGpuDevicePlugin(),
+				features.NewNestedVirtualization(&cfg.Features.NestedVirtualization, utils.ConfigSourceAnnotations),
+				features.NewPciPassthrough(utils.ConfigSourceAnnotations),
+				features.NewVBiosInjection(utils.ConfigSourceAnnotations),
+				features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations),
 			}
 
 			for _, feature := range allFeatures {
@@ -303,7 +303,7 @@ var _ = Describe("Integration Tests", func() {
 				utils.AnnotationPciPassthrough: `{"devices":["invalid"]}`,
 			})
 
-			feature := features.NewPciPassthrough()
+			feature := features.NewPciPassthrough(utils.ConfigSourceAnnotations)
 			err := feature.Validate(testCtx, vm, k8sClient)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("invalid PCI address"))
@@ -314,7 +314,7 @@ var _ = Describe("Integration Tests", func() {
 				utils.AnnotationPciPassthrough: `{"devices":["0000:00:14.0","0000:00:14.0"]}`,
 			})
 
-			feature := features.NewPciPassthrough()
+			feature := features.NewPciPassthrough(utils.ConfigSourceAnnotations)
 			err := feature.Validate(testCtx, vm, k8sClient)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("duplicate"))
@@ -325,7 +325,7 @@ var _ = Describe("Integration Tests", func() {
 				utils.AnnotationGpuDevicePlugin: "invalid name with spaces",
 			})
 
-			feature := features.NewGpuDevicePlugin()
+			feature := features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
 			err := feature.Validate(testCtx, vm, k8sClient)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("invalid device plugin name"))
