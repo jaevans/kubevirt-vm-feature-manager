@@ -108,9 +108,10 @@ func (p *Parser) extractUserData(ctx context.Context, vm *kubevirtv1.VirtualMach
 	return "", nil
 }
 
-// fetchSecretUserData fetches userdata from a Kubernetes Secret
-// Security: Only secrets labeled with "vm-feature-manager.io/userdata=allowed" can be accessed
-// to prevent information disclosure from arbitrary secrets
+// fetchSecretUserData fetches userdata from a Kubernetes Secret.
+// Security: The webhook can read any Secret in the same namespace as the VM.
+// This assumes that if the webhook can mutate a VM in a namespace,
+// it is permitted to read the referenced Secret in that namespace.
 func (p *Parser) fetchSecretUserData(ctx context.Context, namespace, secretName string) (string, error) {
 	logger := log.FromContext(ctx)
 
