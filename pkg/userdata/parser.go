@@ -71,6 +71,9 @@ func (p *Parser) ParseFeatures(ctx context.Context, vm *kubevirtv1.VirtualMachin
 		if userData != "" {
 			volumeFeatures := p.parseDirectives(userData)
 			for k, v := range volumeFeatures {
+				if prev, exists := features[k]; exists {
+					logger.Info("Overwriting feature key from previous volume", "key", k, "previousValue", prev, "newValue", v, "volume", volume.Name)
+				}
 				features[k] = v
 			}
 		}
