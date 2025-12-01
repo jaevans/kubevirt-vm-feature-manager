@@ -139,6 +139,10 @@ func (p *Parser) fetchSecretUserData(ctx context.Context, namespace, secretName 
 func (p *Parser) parseDirectives(userData string) map[string]string {
 	features := make(map[string]string)
 
+	// Reject overly large userdata to prevent resource exhaustion
+	if len(userData) > 65536 { // 64KB limit
+		return features
+	}
 	matches := featureDirectiveRegex.FindAllStringSubmatch(userData, -1)
 	for _, match := range matches {
 		if len(match) == 3 {
