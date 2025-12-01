@@ -31,12 +31,13 @@ var _ = Describe("Handler", func() {
 		cfg = &config.Config{
 			AddTrackingAnnotations: true,
 			ErrorHandlingMode:      utils.ErrorHandlingReject,
+			ConfigSource:           utils.ConfigSourceAnnotations,
 		}
 
 		nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
 			Enabled:       true,
 			AutoDetectCPU: true,
-		})
+		}, utils.ConfigSourceAnnotations)
 
 		mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
 		handler = NewHandler(mutator)
@@ -275,7 +276,7 @@ var _ = Describe("Handler", func() {
 				}
 
 				// Add vBIOS feature to trigger the error path
-				vbiosFeature := features.NewVBiosInjection()
+				vbiosFeature := features.NewVBiosInjection(utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{vbiosFeature})
 				handler = NewHandler(mutator)
 

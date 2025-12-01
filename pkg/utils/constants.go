@@ -66,6 +66,16 @@ const (
 	ErrorHandlingStripLabel = "strip-label"
 )
 
+// ConfigSource represents where to read feature configuration from
+type ConfigSource string
+
+const (
+	// ConfigSourceAnnotations reads feature configuration from VM annotations (default)
+	ConfigSourceAnnotations ConfigSource = "annotations"
+	// ConfigSourceLabels reads feature configuration from VM labels
+	ConfigSourceLabels ConfigSource = "labels"
+)
+
 // IsTruthyValue checks if a string value represents a boolean "true"
 // Accepts: "true", "enabled", "yes", "1" (case-insensitive)
 func IsTruthyValue(value string) bool {
@@ -75,4 +85,50 @@ func IsTruthyValue(value string) bool {
 	default:
 		return false
 	}
+}
+
+// IsValidConfigSource checks if the provided config source is valid
+func IsValidConfigSource(source string) bool {
+	switch ConfigSource(strings.ToLower(source)) {
+	case ConfigSourceAnnotations, ConfigSourceLabels:
+		return true
+	default:
+		return false
+	}
+}
+
+// ParseConfigSource parses a string to ConfigSource, returning the default if invalid
+func ParseConfigSource(source string) ConfigSource {
+	switch ConfigSource(strings.ToLower(source)) {
+	case ConfigSourceAnnotations:
+		return ConfigSourceAnnotations
+	case ConfigSourceLabels:
+		return ConfigSourceLabels
+	default:
+		return ConfigSourceAnnotations
+	}
+}
+
+// GetConfigValue retrieves a configuration value from either annotations or labels
+// based on the configSource setting. Returns the value and whether it was found.
+func GetConfigValue(configSource ConfigSource, annotations, labels map[string]string, key string) (string, bool) {
+	var source map[string]string
+	if configSource == ConfigSourceLabels {
+		source = labels
+	} else {
+		source = annotations
+	}
+	if source == nil {
+		return "", false
+	}
+	value, exists := source[key]
+	return value, exists
+}
+
+// GetConfigMap returns either annotations or labels based on the configSource setting.
+func GetConfigMap(configSource ConfigSource, annotations, labels map[string]string) map[string]string {
+	if configSource == ConfigSourceLabels {
+		return labels
+	}
+	return annotations
 }

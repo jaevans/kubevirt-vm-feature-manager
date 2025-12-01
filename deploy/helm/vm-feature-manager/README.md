@@ -121,6 +121,8 @@ The following table lists the configurable parameters of the chart and their def
 | `image.repository`                      | Webhook image repository             | `ghcr.io/jaevans/kubevirt-vm-feature-manager` |
 | `image.tag`                             | Image tag                            | Chart appVersion                              |
 | `image.pullPolicy`                      | Image pull policy                    | `IfNotPresent`                                |
+| `logLevel`                              | Log level (debug/info/warn/error)    | `info`                                        |
+| `configSource`                          | Configuration source (annotations/labels) | `annotations`                            |
 | `webhook.port`                          | Webhook server port                  | `8443`                                        |
 | `webhook.certDir`                       | Certificate directory                | `/etc/webhook/certs`                          |
 | `webhook.failurePolicy`                 | Webhook failure policy (Fail/Ignore) | `Fail`                                        |
@@ -137,7 +139,7 @@ The following table lists the configurable parameters of the chart and their def
 
 ## Features
 
-The webhook supports the following annotations on VirtualMachine objects:
+The webhook supports the following annotations (or labels if `configSource` is set to `labels`) on VirtualMachine objects:
 
 ### Nested Virtualization
 ```yaml
@@ -165,6 +167,24 @@ metadata:
 metadata:
   annotations:
     vm-feature-manager.io/pci-passthrough: "0000:00:02.0"
+```
+
+### Using Labels Instead of Annotations
+
+If your environment doesn't propagate annotations (e.g., Rancher MachineConfig), you can configure the webhook to read from labels instead:
+
+```bash
+helm install vm-feature-manager ./deploy/helm/vm-feature-manager \
+  --namespace vm-feature-manager \
+  --create-namespace \
+  --set configSource=labels
+```
+
+Then use labels on your VirtualMachine:
+```yaml
+metadata:
+  labels:
+    vm-feature-manager.io/nested-virt: "enabled"
 ```
 
 ## Uninstalling the Chart

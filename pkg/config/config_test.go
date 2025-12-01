@@ -17,7 +17,7 @@ var _ = Describe("Config", func() {
 		// Save original environment - include ALL environment variables that config uses
 		originalEnv = make(map[string]string)
 		envVars := []string{
-			"PORT", "CERT_DIR", "LOG_LEVEL", "ERROR_HANDLING_MODE",
+			"PORT", "CERT_DIR", "LOG_LEVEL", "ERROR_HANDLING_MODE", "CONFIG_SOURCE",
 			"ADD_TRACKING_ANNOTATIONS", "WEBHOOK_VERSION",
 			"FEATURE_NESTED_VIRT_ENABLED", "FEATURE_NESTED_VIRT_AUTO_DETECT",
 			"FEATURE_VBIOS_ENABLED", "VBIOS_SIDECAR_IMAGE", "VBIOS_SIDECAR_IMAGE_OVERRIDE",
@@ -52,6 +52,7 @@ var _ = Describe("Config", func() {
 				Expect(cfg.CertDir).To(Equal("/etc/webhook/certs"))
 				Expect(cfg.LogLevel).To(Equal("info"))
 				Expect(cfg.ErrorHandlingMode).To(Equal(utils.ErrorHandlingReject))
+				Expect(cfg.ConfigSource).To(Equal(utils.ConfigSourceAnnotations))
 				Expect(cfg.AddTrackingAnnotations).To(BeTrue())
 				Expect(cfg.WebhookVersion).To(Equal("v0.1.0"))
 			})
@@ -121,6 +122,12 @@ var _ = Describe("Config", func() {
 				Expect(os.Setenv("GPU_ALLOWED_PLUGINS", "plugin1,plugin2,plugin3")).To(Succeed())
 				cfg := config.LoadConfig()
 				Expect(cfg.Features.GPUDevicePlugin.AllowedPlugins).To(ConsistOf("plugin1", "plugin2", "plugin3"))
+			})
+
+			It("should override config source from environment", func() {
+				Expect(os.Setenv("CONFIG_SOURCE", string(utils.ConfigSourceLabels))).To(Succeed())
+				cfg := config.LoadConfig()
+				Expect(cfg.ConfigSource).To(Equal(utils.ConfigSourceLabels))
 			})
 		})
 

@@ -21,11 +21,15 @@ var devicePluginNameRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\
 // GpuDevicePlugin implements GPU device plugin resource allocation for VMs.
 // It adds Kubernetes device plugin resources to the VM's resource limits,
 // enabling GPU passthrough via device plugins like nvidia.com/gpu.
-type GpuDevicePlugin struct{}
+type GpuDevicePlugin struct {
+	configSource utils.ConfigSource
+}
 
 // NewGpuDevicePlugin creates a new GpuDevicePlugin instance.
-func NewGpuDevicePlugin() *GpuDevicePlugin {
-	return &GpuDevicePlugin{}
+func NewGpuDevicePlugin(configSource utils.ConfigSource) *GpuDevicePlugin {
+	return &GpuDevicePlugin{
+		configSource: configSource,
+	}
 }
 
 // Name returns the feature name.
@@ -35,20 +39,13 @@ func (f *GpuDevicePlugin) Name() string {
 
 // IsEnabled checks if the GPU device plugin feature is enabled for this VM.
 func (f *GpuDevicePlugin) IsEnabled(vm *kubevirtv1.VirtualMachine) bool {
-	if vm.Annotations == nil {
-		return false
-	}
-	pluginName, exists := vm.Annotations[utils.AnnotationGpuDevicePlugin]
+	pluginName, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationGpuDevicePlugin)
 	return exists && pluginName != ""
 }
 
 // Validate ensures the device plugin name is valid.
 func (f *GpuDevicePlugin) Validate(ctx context.Context, vm *kubevirtv1.VirtualMachine, k8sClient client.Client) error {
-	if vm.Annotations == nil {
-		return nil
-	}
-
-	pluginName, exists := vm.Annotations[utils.AnnotationGpuDevicePlugin]
+	pluginName, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationGpuDevicePlugin)
 	if !exists {
 		return nil
 	}
@@ -84,7 +81,7 @@ func (f *GpuDevicePlugin) Apply(ctx context.Context, vm *kubevirtv1.VirtualMachi
 		return result, fmt.Errorf("VM template is nil")
 	}
 
-	pluginName := vm.Annotations[utils.AnnotationGpuDevicePlugin]
+	pluginName, _ := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationGpuDevicePlugin)
 
 	// Initialize resources if needed
 	if vm.Spec.Template.Spec.Domain.Resources.Limits == nil {

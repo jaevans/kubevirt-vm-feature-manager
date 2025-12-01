@@ -21,7 +21,7 @@ var _ = Describe("VBiosInjection", func() {
 	)
 
 	BeforeEach(func() {
-		feature = features.NewVBiosInjection()
+		feature = features.NewVBiosInjection(utils.ConfigSourceAnnotations)
 		ctx = context.Background()
 
 		vm = &kubevirtv1.VirtualMachine{

@@ -23,6 +23,7 @@ import (
 
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/config"
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/features"
+	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/utils"
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/webhook"
 )
 
@@ -47,6 +48,7 @@ func main() {
 	var certDir string
 	var errorHandling string
 	var logLevel string
+	var configSource string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
@@ -55,6 +57,7 @@ func main() {
 	flag.StringVar(&certDir, "cert-dir", "", "The directory containing TLS certificates (overrides CERT_DIR env var).")
 	flag.StringVar(&errorHandling, "error-handling", "", "Error handling mode: 'reject' or 'allow' (overrides ERROR_HANDLING_MODE env var).")
 	flag.StringVar(&logLevel, "log-level", "", "Log level: 'debug', 'info', 'warn', 'error' (overrides LOG_LEVEL env var).")
+	flag.StringVar(&configSource, "config-source", "", "Configuration source: 'annotations' or 'labels' (overrides CONFIG_SOURCE env var).")
 	flag.Parse()
 
 	// Show version and exit if requested
@@ -78,6 +81,13 @@ func main() {
 	}
 	if logLevel != "" {
 		cfg.LogLevel = logLevel
+	}
+	if configSource != "" {
+		if !utils.IsValidConfigSource(configSource) {
+			fmt.Fprintf(os.Stderr, "Invalid config-source value: %s (must be 'annotations' or 'labels')\n", configSource)
+			os.Exit(1)
+		}
+		cfg.ConfigSource = utils.ParseConfigSource(configSource)
 	}
 
 	// Set up logger with configured log level
@@ -106,7 +116,8 @@ func main() {
 	logger.Info("Configuration loaded",
 		"port", cfg.Port,
 		"logLevel", cfg.LogLevel,
-		"errorHandlingMode", cfg.ErrorHandlingMode)
+		"errorHandlingMode", cfg.ErrorHandlingMode,
+		"configSource", cfg.ConfigSource)
 
 	// Create Kubernetes client
 	restConfig, err := ctrlconfig.GetConfig()
@@ -123,10 +134,10 @@ func main() {
 
 	// Initialize features
 	featureList := []features.Feature{
-		features.NewNestedVirtualization(&cfg.Features.NestedVirtualization),
-		features.NewPciPassthrough(),
-		features.NewVBiosInjection(),
-		features.NewGpuDevicePlugin(),
+		features.NewNestedVirtualization(&cfg.Features.NestedVirtualization, cfg.ConfigSource),
+		features.NewPciPassthrough(cfg.ConfigSource),
+		features.NewVBiosInjection(cfg.ConfigSource),
+		features.NewGpuDevicePlugin(cfg.ConfigSource),
 	}
 
 	logger.Info("Features initialized", "count", len(featureList))

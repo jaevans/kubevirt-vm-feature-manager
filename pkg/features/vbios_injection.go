@@ -29,11 +29,15 @@ type HookSidecar struct {
 }
 
 // VBiosInjection implements vBIOS injection via KubeVirt hook sidecar
-type VBiosInjection struct{}
+type VBiosInjection struct {
+	configSource utils.ConfigSource
+}
 
 // NewVBiosInjection creates a new VBiosInjection feature
-func NewVBiosInjection() *VBiosInjection {
-	return &VBiosInjection{}
+func NewVBiosInjection(configSource utils.ConfigSource) *VBiosInjection {
+	return &VBiosInjection{
+		configSource: configSource,
+	}
 }
 
 // Name returns the feature name
@@ -41,32 +45,22 @@ func (f *VBiosInjection) Name() string {
 	return utils.FeatureVBiosInjection
 }
 
-// IsEnabled checks if vBIOS injection is requested via annotations
+// IsEnabled checks if vBIOS injection is requested via annotations or labels
 func (f *VBiosInjection) IsEnabled(vm *kubevirtv1.VirtualMachine) bool {
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		return false
-	}
-
-	value, exists := annotations[utils.AnnotationVBiosInjection]
+	value, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationVBiosInjection)
 	return exists && value != ""
 }
 
 // Validate performs validation of vBIOS injection configuration
 func (f *VBiosInjection) Validate(_ context.Context, vm *kubevirtv1.VirtualMachine, _ client.Client) error {
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		return nil
-	}
-
-	configMapName, exists := annotations[utils.AnnotationVBiosInjection]
+	configMapName, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationVBiosInjection)
 	if !exists {
 		return nil
 	}
 
 	// Validate ConfigMap name is not empty
 	if configMapName == "" {
-		return fmt.Errorf("empty ConfigMap name in %s annotation", utils.AnnotationVBiosInjection)
+		return fmt.Errorf("empty ConfigMap name in %s configuration key", utils.AnnotationVBiosInjection)
 	}
 
 	// Validate ConfigMap name length (max 253 characters per DNS subdomain spec)
@@ -79,10 +73,13 @@ func (f *VBiosInjection) Validate(_ context.Context, vm *kubevirtv1.VirtualMachi
 		return fmt.Errorf("invalid ConfigMap name format: %s (must be a valid DNS subdomain)", configMapName)
 	}
 
-	// Validate sidecar image if provided
-	if sidecarImage, ok := annotations[utils.AnnotationSidecarImage]; ok && sidecarImage != "" {
-		if !imageRefRegex.MatchString(sidecarImage) {
-			return fmt.Errorf("invalid sidecar image reference: %s", sidecarImage)
+	// Validate sidecar image if provided (always read from annotations since it's a secondary config)
+	annotations := vm.GetAnnotations()
+	if annotations != nil {
+		if sidecarImage, ok := annotations[utils.AnnotationSidecarImage]; ok && sidecarImage != "" {
+			if !imageRefRegex.MatchString(sidecarImage) {
+				return fmt.Errorf("invalid sidecar image reference: %s", sidecarImage)
+			}
 		}
 	}
 
@@ -94,12 +91,7 @@ func (f *VBiosInjection) Apply(ctx context.Context, vm *kubevirtv1.VirtualMachin
 	logger := log.FromContext(ctx)
 	result := NewMutationResult()
 
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		return result, nil
-	}
-
-	configMapName, exists := annotations[utils.AnnotationVBiosInjection]
+	configMapName, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationVBiosInjection)
 	if !exists || configMapName == "" {
 		return result, nil
 	}
@@ -116,11 +108,14 @@ func (f *VBiosInjection) Apply(ctx context.Context, vm *kubevirtv1.VirtualMachin
 		return result, err
 	}
 
-	// Determine sidecar image to use
+	// Determine sidecar image to use (always read from annotations since it's a secondary config)
 	sidecarImage := utils.DefaultSidecarImage
-	if customImage, ok := annotations[utils.AnnotationSidecarImage]; ok && customImage != "" {
-		sidecarImage = customImage
-		logger.Info("Using custom sidecar image", "image", sidecarImage)
+	annotations := vm.GetAnnotations()
+	if annotations != nil {
+		if customImage, ok := annotations[utils.AnnotationSidecarImage]; ok && customImage != "" {
+			sidecarImage = customImage
+			logger.Info("Using custom sidecar image", "image", sidecarImage)
+		}
 	}
 
 	// Add vBIOS volume if not already present

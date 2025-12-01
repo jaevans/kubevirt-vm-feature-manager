@@ -28,6 +28,7 @@ var _ = Describe("Mutator", func() {
 		cfg = &config.Config{
 			AddTrackingAnnotations: true,
 			ErrorHandlingMode:      utils.ErrorHandlingReject,
+			ConfigSource:           utils.ConfigSourceAnnotations,
 		}
 	})
 
@@ -62,7 +63,7 @@ var _ = Describe("Mutator", func() {
 				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
 					Enabled:       true,
 					AutoDetectCPU: true,
-				})
+				}, utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -106,7 +107,7 @@ var _ = Describe("Mutator", func() {
 				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
 					Enabled:       true,
 					AutoDetectCPU: true,
-				})
+				}, utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -207,7 +208,7 @@ var _ = Describe("Mutator", func() {
 				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
 					Enabled:       true,
 					AutoDetectCPU: true,
-				})
+				}, utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -267,8 +268,8 @@ var _ = Describe("Mutator", func() {
 				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
 					Enabled:       true,
 					AutoDetectCPU: true,
-				})
-				gpuFeature := features.NewGpuDevicePlugin()
+				}, utils.ConfigSourceAnnotations)
+				gpuFeature := features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature, gpuFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -353,7 +354,7 @@ var _ = Describe("Mutator", func() {
 					},
 				}
 
-				gpuFeature := features.NewGpuDevicePlugin()
+				gpuFeature := features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{gpuFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -389,7 +390,7 @@ var _ = Describe("Mutator", func() {
 					},
 				}
 
-				vbiosFeature := features.NewVBiosInjection()
+				vbiosFeature := features.NewVBiosInjection(utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{vbiosFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -413,7 +414,7 @@ var _ = Describe("Mutator", func() {
 				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
 					Enabled:       true,
 					AutoDetectCPU: true,
-				})
+				}, utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -453,7 +454,7 @@ var _ = Describe("Mutator", func() {
 					},
 				}
 
-				vbiosFeature := features.NewVBiosInjection()
+				vbiosFeature := features.NewVBiosInjection(utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{vbiosFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -490,7 +491,7 @@ var _ = Describe("Mutator", func() {
 					},
 				}
 
-				vbiosFeature := features.NewVBiosInjection()
+				vbiosFeature := features.NewVBiosInjection(utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{vbiosFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -529,7 +530,7 @@ var _ = Describe("Mutator", func() {
 					},
 				}
 
-				vbiosFeature := features.NewVBiosInjection()
+				vbiosFeature := features.NewVBiosInjection(utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{vbiosFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -616,7 +617,7 @@ var _ = Describe("Mutator", func() {
 			nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
 				Enabled:       true,
 				AutoDetectCPU: true,
-			})
+			}, utils.ConfigSourceAnnotations)
 			mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
 
 			Expect(mutator.hasEnabledFeatures(vm)).To(BeTrue())
@@ -630,7 +631,7 @@ var _ = Describe("Mutator", func() {
 			nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
 				Enabled:       true,
 				AutoDetectCPU: true,
-			})
+			}, utils.ConfigSourceAnnotations)
 			mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
 
 			Expect(mutator.hasEnabledFeatures(vm)).To(BeFalse())
@@ -666,7 +667,7 @@ var _ = Describe("Mutator", func() {
 					},
 				}
 
-				vbiosFeature := features.NewVBiosInjection()
+				vbiosFeature := features.NewVBiosInjection(utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{vbiosFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -708,7 +709,7 @@ var _ = Describe("Mutator", func() {
 				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
 					Enabled:       true,
 					AutoDetectCPU: true,
-				})
+				}, utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
 
 				response, err := mutator.Handle(ctx, req)
@@ -757,7 +758,7 @@ var _ = Describe("Mutator", func() {
 					},
 				}
 
-				gpuFeature := features.NewGpuDevicePlugin()
+				gpuFeature := features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
 				mutator = NewMutator(nil, cfg, []features.Feature{gpuFeature})
 
 				response, err := mutator.Handle(ctx, req)

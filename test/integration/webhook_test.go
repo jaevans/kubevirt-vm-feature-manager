@@ -53,10 +53,10 @@ var _ = Describe("Webhook Integration Tests", func() {
 
 		// Create features
 		allFeatures := []features.Feature{
-			features.NewNestedVirtualization(&cfg.Features.NestedVirtualization),
-			features.NewPciPassthrough(),
-			features.NewVBiosInjection(),
-			features.NewGpuDevicePlugin(),
+			features.NewNestedVirtualization(&cfg.Features.NestedVirtualization, utils.ConfigSourceAnnotations),
+			features.NewPciPassthrough(utils.ConfigSourceAnnotations),
+			features.NewVBiosInjection(utils.ConfigSourceAnnotations),
+			features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations),
 		}
 
 		// Create mutator with real Kubernetes client
@@ -344,7 +344,7 @@ var _ = Describe("Webhook Integration Tests", func() {
 			BeforeEach(func() {
 				cfg.ErrorHandlingMode = utils.ErrorHandlingAllowAndLog
 				allFeatures := []features.Feature{
-					features.NewVBiosInjection(),
+					features.NewVBiosInjection(utils.ConfigSourceAnnotations),
 				}
 				mutator = webhook.NewMutator(k8sClient, cfg, allFeatures)
 			})
@@ -386,7 +386,7 @@ var _ = Describe("Webhook Integration Tests", func() {
 			BeforeEach(func() {
 				cfg.ErrorHandlingMode = utils.ErrorHandlingReject
 				allFeatures := []features.Feature{
-					features.NewVBiosInjection(),
+					features.NewVBiosInjection(utils.ConfigSourceAnnotations),
 				}
 				mutator = webhook.NewMutator(k8sClient, cfg, allFeatures)
 			})
@@ -473,7 +473,7 @@ var _ = Describe("Webhook Integration Tests", func() {
 			BeforeEach(func() {
 				cfg.AddTrackingAnnotations = false
 				allFeatures := []features.Feature{
-					features.NewNestedVirtualization(&cfg.Features.NestedVirtualization),
+					features.NewNestedVirtualization(&cfg.Features.NestedVirtualization, utils.ConfigSourceAnnotations),
 				}
 				mutator = webhook.NewMutator(k8sClient, cfg, allFeatures)
 			})

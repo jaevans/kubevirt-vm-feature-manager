@@ -1,6 +1,6 @@
 # KubeVirt VM Feature Manager
 
-A mutating admission webhook for Harvester HCI that enables advanced features on KubeVirt VirtualMachine objects through simple annotations.
+A mutating admission webhook for Harvester HCI that enables advanced features on KubeVirt VirtualMachine objects through simple annotations or labels.
 
 ## Features
 
@@ -8,6 +8,7 @@ A mutating admission webhook for Harvester HCI that enables advanced features on
 - **vBIOS Injection**: Inject custom vBIOS blobs for GPU passthrough (via hook sidecar)
 - **PCI Passthrough**: Configure PCI device passthrough
 - **GPU Device Plugin**: Attach GPUs via Kubernetes device plugins
+- **Flexible Configuration**: Read feature configuration from annotations (default) or labels
 
 ## Quick Start
 
@@ -106,6 +107,31 @@ Download pre-built binaries from the [releases page](https://github.com/jaevans/
 ## Configuration
 
 The webhook can be configured via environment variables or a ConfigMap. See [Configuration](docs/configuration.md) for details.
+
+### Using Labels Instead of Annotations
+
+By default, the webhook reads feature configuration from annotations. If your environment doesn't propagate annotations (e.g., Rancher MachineConfig), you can configure the webhook to read from labels instead:
+
+```bash
+helm install vm-feature-manager oci://ghcr.io/jaevans/kubevirt-vm-feature-manager/charts/vm-feature-manager \
+  --namespace kubevirt \
+  --create-namespace \
+  --set configSource=labels
+```
+
+Then use labels on your VirtualMachine:
+
+```yaml
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: my-vm
+  labels:
+    vm-feature-manager.io/nested-virt: "enabled"
+    vm-feature-manager.io/gpu-device-plugin: "nvidia.com/gpu"
+spec:
+  # ... rest of VM spec
+```
 
 ## Architecture
 
