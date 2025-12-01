@@ -65,6 +65,10 @@ spec:
 - Base64: `userDataBase64: <base64-encoded>`
 - Secret reference: `userDataSecretRef: {name: my-secret}`
 
+Security:
+- The webhook reads referenced Secrets in the VM namespace for userdata without additional labels or annotations.
+- Recommendation: Use namespace-scoped RBAC to limit which secrets are readable; if you can create a VM in the namespace, you are assumed to have permission to read its referenced Secret.
+
 **Note:** VM annotations take precedence over userdata directives.
 
 ### Installation
