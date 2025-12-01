@@ -69,6 +69,26 @@ var _ = Describe("VBiosInjection", func() {
 				Expect(feature.IsEnabled(vm)).To(BeFalse())
 			})
 		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				feature = features.NewVBiosInjection(utils.ConfigSourceLabels)
+			})
+
+			It("should return true when label is set", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationVBiosInjection: "my-vbios-configmap",
+				}
+				Expect(feature.IsEnabled(vm)).To(BeTrue())
+			})
+
+			It("should return false when annotation is set but labels are used", func() {
+				vm.Annotations = map[string]string{
+					utils.AnnotationVBiosInjection: "my-vbios-configmap",
+				}
+				Expect(feature.IsEnabled(vm)).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("Validate", func() {
@@ -137,6 +157,28 @@ var _ = Describe("VBiosInjection", func() {
 				err := feature.Validate(ctx, vm, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("invalid sidecar image"))
+			})
+		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				feature = features.NewVBiosInjection(utils.ConfigSourceLabels)
+			})
+
+			It("should accept valid ConfigMap name from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationVBiosInjection: "my-vbios",
+				}
+				Expect(feature.Validate(ctx, vm, nil)).To(Succeed())
+			})
+
+			It("should reject invalid ConfigMap name from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationVBiosInjection: "invalid name!",
+				}
+				err := feature.Validate(ctx, vm, nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("invalid ConfigMap name"))
 			})
 		})
 	})
@@ -285,6 +327,56 @@ var _ = Describe("VBiosInjection", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("invalid ConfigMap name"))
 				Expect(result.Applied).To(BeFalse())
+			})
+		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				feature = features.NewVBiosInjection(utils.ConfigSourceLabels)
+			})
+
+			It("should add hook sidecar from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationVBiosInjection: "my-vbios-configmap",
+				}
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Applied).To(BeTrue())
+
+				Expect(vm.Spec.Template.ObjectMeta.Annotations).To(HaveKey(utils.HookAnnotationKey))
+			})
+
+			It("should not apply when only annotation is set", func() {
+				vm.Annotations = map[string]string{
+					utils.AnnotationVBiosInjection: "my-vbios-configmap",
+				}
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Applied).To(BeFalse())
+			})
+
+			It("should add tracking annotation from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationVBiosInjection: "my-vbios-configmap",
+				}
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Annotations).To(HaveKey(utils.AnnotationVBiosInjectionApplied))
+				Expect(result.Annotations[utils.AnnotationVBiosInjectionApplied]).To(Equal("my-vbios-configmap"))
+			})
+
+			It("should add vBIOS volume from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationVBiosInjection: "my-vbios-configmap",
+				}
+				_, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumes := vm.Spec.Template.Spec.Volumes
+				Expect(volumes).To(HaveLen(1))
+				Expect(volumes[0].Name).To(Equal("vbios-rom"))
+				Expect(volumes[0].ConfigMap).ToNot(BeNil())
+				Expect(volumes[0].ConfigMap.Name).To(Equal("my-vbios-configmap"))
 			})
 		})
 	})

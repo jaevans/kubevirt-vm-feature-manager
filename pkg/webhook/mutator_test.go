@@ -789,4 +789,251 @@ var _ = Describe("Mutator", func() {
 			})
 		})
 	})
+
+	Describe("Label-based Configuration", func() {
+		Context("with labels as config source", func() {
+			BeforeEach(func() {
+				cfg.ConfigSource = utils.ConfigSourceLabels
+			})
+
+			It("should apply nested virt feature from label", func() {
+				vm := &kubevirtv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							utils.AnnotationNestedVirt: "enabled",
+						},
+					},
+					Spec: kubevirtv1.VirtualMachineSpec{
+						Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: kubevirtv1.VirtualMachineInstanceSpec{
+								Domain: kubevirtv1.DomainSpec{},
+							},
+						},
+					},
+				}
+
+				vmBytes, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := &admissionv1.AdmissionRequest{
+					UID:       "test-uid",
+					Operation: admissionv1.Create,
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				}
+
+				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
+					Enabled:       true,
+					AutoDetectCPU: true,
+				}, utils.ConfigSourceLabels)
+				mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
+
+				response, err := mutator.Handle(ctx, req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+				Expect(response.Allowed).To(BeTrue())
+				Expect(response.Patch).ToNot(BeNil())
+
+				// Verify the patch contains CPU features
+				var patchOps []map[string]interface{}
+				err = json.Unmarshal(response.Patch, &patchOps)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(patchOps).ToNot(BeEmpty())
+
+				foundSpecPatch := false
+				for _, op := range patchOps {
+					if path, ok := op["path"].(string); ok && path == "/spec" {
+						foundSpecPatch = true
+						spec := op["value"].(map[string]interface{})
+						template := spec["template"].(map[string]interface{})
+						specMap := template["spec"].(map[string]interface{})
+						domain := specMap["domain"].(map[string]interface{})
+						cpu := domain["cpu"].(map[string]interface{})
+						cpuFeatures := cpu["features"].([]interface{})
+						Expect(cpuFeatures).ToNot(BeEmpty())
+						break
+					}
+				}
+				Expect(foundSpecPatch).To(BeTrue())
+			})
+
+			It("should not apply feature when annotation is set but labels are used", func() {
+				vm := &kubevirtv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Annotations: map[string]string{
+							utils.AnnotationNestedVirt: "enabled",
+						},
+					},
+					Spec: kubevirtv1.VirtualMachineSpec{
+						Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: kubevirtv1.VirtualMachineInstanceSpec{
+								Domain: kubevirtv1.DomainSpec{},
+							},
+						},
+					},
+				}
+
+				vmBytes, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := &admissionv1.AdmissionRequest{
+					UID:       "test-uid",
+					Operation: admissionv1.Create,
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				}
+
+				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
+					Enabled:       true,
+					AutoDetectCPU: true,
+				}, utils.ConfigSourceLabels)
+				mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature})
+
+				response, err := mutator.Handle(ctx, req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+				Expect(response.Allowed).To(BeTrue())
+				// Should not have a patch since no features were enabled
+				Expect(response.Result.Message).To(ContainSubstring("No features requested"))
+			})
+
+			It("should apply GPU device plugin from label", func() {
+				vm := &kubevirtv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							utils.AnnotationGpuDevicePlugin: "nvidia.com/gpu",
+						},
+					},
+					Spec: kubevirtv1.VirtualMachineSpec{
+						Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: kubevirtv1.VirtualMachineInstanceSpec{
+								Domain: kubevirtv1.DomainSpec{},
+							},
+						},
+					},
+				}
+
+				vmBytes, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := &admissionv1.AdmissionRequest{
+					UID:       "test-uid",
+					Operation: admissionv1.Create,
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				}
+
+				gpuFeature := features.NewGpuDevicePlugin(utils.ConfigSourceLabels)
+				mutator = NewMutator(nil, cfg, []features.Feature{gpuFeature})
+
+				response, err := mutator.Handle(ctx, req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+				Expect(response.Allowed).To(BeTrue())
+				Expect(response.Patch).ToNot(BeNil())
+
+				// Verify GPU resource limit is added
+				var patchOps []map[string]interface{}
+				err = json.Unmarshal(response.Patch, &patchOps)
+				Expect(err).ToNot(HaveOccurred())
+
+				foundSpecPatch := false
+				for _, op := range patchOps {
+					if path, ok := op["path"].(string); ok && path == "/spec" {
+						foundSpecPatch = true
+						spec := op["value"].(map[string]interface{})
+						template := spec["template"].(map[string]interface{})
+						specMap := template["spec"].(map[string]interface{})
+						domain := specMap["domain"].(map[string]interface{})
+						resources := domain["resources"].(map[string]interface{})
+						limits := resources["limits"].(map[string]interface{})
+						Expect(limits).To(HaveKey("nvidia.com/gpu"))
+						break
+					}
+				}
+				Expect(foundSpecPatch).To(BeTrue())
+			})
+
+			It("should apply multiple features from labels", func() {
+				vm := &kubevirtv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vm",
+						Namespace: "default",
+						Labels: map[string]string{
+							utils.AnnotationNestedVirt:      "enabled",
+							utils.AnnotationGpuDevicePlugin: "nvidia.com/gpu",
+						},
+					},
+					Spec: kubevirtv1.VirtualMachineSpec{
+						Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: kubevirtv1.VirtualMachineInstanceSpec{
+								Domain: kubevirtv1.DomainSpec{},
+							},
+						},
+					},
+				}
+
+				vmBytes, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := &admissionv1.AdmissionRequest{
+					UID:       "test-uid",
+					Operation: admissionv1.Create,
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				}
+
+				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
+					Enabled:       true,
+					AutoDetectCPU: true,
+				}, utils.ConfigSourceLabels)
+				gpuFeature := features.NewGpuDevicePlugin(utils.ConfigSourceLabels)
+				mutator = NewMutator(nil, cfg, []features.Feature{nestedVirtFeature, gpuFeature})
+
+				response, err := mutator.Handle(ctx, req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response).ToNot(BeNil())
+				Expect(response.Allowed).To(BeTrue())
+				Expect(response.Patch).ToNot(BeNil())
+
+				// Verify both features are applied
+				var patchOps []map[string]interface{}
+				err = json.Unmarshal(response.Patch, &patchOps)
+				Expect(err).ToNot(HaveOccurred())
+
+				foundSpecPatch := false
+				for _, op := range patchOps {
+					if path, ok := op["path"].(string); ok && path == "/spec" {
+						foundSpecPatch = true
+						spec := op["value"].(map[string]interface{})
+						template := spec["template"].(map[string]interface{})
+						specMap := template["spec"].(map[string]interface{})
+						domain := specMap["domain"].(map[string]interface{})
+
+						// Check CPU features
+						cpu := domain["cpu"].(map[string]interface{})
+						cpuFeatures := cpu["features"].([]interface{})
+						Expect(cpuFeatures).ToNot(BeEmpty())
+
+						// Check GPU resource limits
+						resources := domain["resources"].(map[string]interface{})
+						limits := resources["limits"].(map[string]interface{})
+						Expect(limits).To(HaveKey("nvidia.com/gpu"))
+						break
+					}
+				}
+				Expect(foundSpecPatch).To(BeTrue())
+			})
+		})
+	})
 })

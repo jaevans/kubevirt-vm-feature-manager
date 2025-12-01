@@ -70,6 +70,26 @@ var _ = Describe("GpuDevicePlugin", func() {
 				Expect(feature.IsEnabled(vm)).To(BeFalse())
 			})
 		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				feature = features.NewGpuDevicePlugin(utils.ConfigSourceLabels)
+			})
+
+			It("should return true when label is set", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationGpuDevicePlugin: "nvidia.com/gpu",
+				}
+				Expect(feature.IsEnabled(vm)).To(BeTrue())
+			})
+
+			It("should return false when annotation is set but labels are used", func() {
+				vm.Annotations = map[string]string{
+					utils.AnnotationGpuDevicePlugin: "nvidia.com/gpu",
+				}
+				Expect(feature.IsEnabled(vm)).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("Validate", func() {
@@ -145,6 +165,28 @@ var _ = Describe("GpuDevicePlugin", func() {
 				err := feature.Validate(ctx, vm, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("empty"))
+			})
+		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				feature = features.NewGpuDevicePlugin(utils.ConfigSourceLabels)
+			})
+
+			It("should accept valid device plugin name from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationGpuDevicePlugin: "nvidia.com/gpu",
+				}
+				Expect(feature.Validate(ctx, vm, nil)).To(Succeed())
+			})
+
+			It("should reject invalid device plugin name from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationGpuDevicePlugin: "invalid name",
+				}
+				err := feature.Validate(ctx, vm, nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("invalid device plugin name"))
 			})
 		})
 	})
@@ -254,6 +296,44 @@ var _ = Describe("GpuDevicePlugin", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("invalid device plugin name"))
 				Expect(result.Applied).To(BeFalse())
+			})
+		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				feature = features.NewGpuDevicePlugin(utils.ConfigSourceLabels)
+			})
+
+			It("should add GPU resource limit from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationGpuDevicePlugin: "nvidia.com/gpu",
+				}
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Applied).To(BeTrue())
+
+				limits := vm.Spec.Template.Spec.Domain.Resources.Limits
+				Expect(limits).To(HaveKey(corev1.ResourceName("nvidia.com/gpu")))
+				Expect(limits[corev1.ResourceName("nvidia.com/gpu")]).To(Equal(resource.MustParse("1")))
+			})
+
+			It("should not apply when only annotation is set", func() {
+				vm.Annotations = map[string]string{
+					utils.AnnotationGpuDevicePlugin: "nvidia.com/gpu",
+				}
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Applied).To(BeFalse())
+			})
+
+			It("should add tracking annotation from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationGpuDevicePlugin: "amd.com/gpu",
+				}
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Annotations).To(HaveKey(utils.AnnotationGpuDevicePluginApplied))
+				Expect(result.Annotations[utils.AnnotationGpuDevicePluginApplied]).To(Equal("amd.com/gpu"))
 			})
 		})
 	})
