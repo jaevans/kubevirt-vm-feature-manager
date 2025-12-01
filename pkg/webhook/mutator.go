@@ -15,6 +15,7 @@ import (
 
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/config"
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/features"
+	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/userdata"
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/utils"
 )
 
@@ -29,17 +30,19 @@ func init() {
 
 // Mutator handles VM mutation based on feature annotations
 type Mutator struct {
-	client   client.Client
-	config   *config.Config
-	features []features.Feature
+	client        client.Client
+	config        *config.Config
+	features      []features.Feature
+	userdataParser *userdata.Parser
 }
 
 // NewMutator creates a new Mutator
 func NewMutator(client client.Client, cfg *config.Config, featureList []features.Feature) *Mutator {
 	return &Mutator{
-		client:   client,
-		config:   cfg,
-		features: featureList,
+		client:        client,
+		config:        cfg,
+		features:      featureList,
+		userdataParser: userdata.NewParser(client),
 	}
 }
 
@@ -58,6 +61,28 @@ func (m *Mutator) Handle(ctx context.Context, req *admissionv1.AdmissionRequest)
 		"vm", vm.Name,
 		"namespace", vm.Namespace,
 		"operation", req.Operation)
+
+	// Parse userdata for feature directives and merge into annotations
+	userdataFeatures, err := m.userdataParser.ParseFeatures(ctx, vm)
+	if err != nil {
+		logger.Error(err, "Failed to parse userdata features")
+		// Non-fatal: continue with annotation-based features
+	} else if len(userdataFeatures) > 0 {
+		logger.Info("Found feature directives in userdata", "features", userdataFeatures)
+		
+		// Merge userdata features into annotations (annotations take precedence)
+		if vm.Annotations == nil {
+			vm.Annotations = make(map[string]string)
+		}
+		for key, value := range userdataFeatures {
+			if _, exists := vm.Annotations[key]; !exists {
+				vm.Annotations[key] = value
+				logger.Info("Applied userdata feature directive", "key", key, "value", value)
+			} else {
+				logger.Info("Skipping userdata feature (annotation exists)", "key", key)
+			}
+		}
+	}
 
 	// Log detailed feature detection information for debugging
 	m.logFeatureDetection(ctx, vm)
