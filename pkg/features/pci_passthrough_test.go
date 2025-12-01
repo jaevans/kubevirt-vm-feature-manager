@@ -68,6 +68,26 @@ var _ = Describe("PciPassthrough", func() {
 				Expect(feature.IsEnabled(vm)).To(BeFalse())
 			})
 		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				feature = features.NewPciPassthrough(utils.ConfigSourceLabels)
+			})
+
+			It("should return true when label is set", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationPciPassthrough: `{"devices": ["0000:00:02.0"]}`,
+				}
+				Expect(feature.IsEnabled(vm)).To(BeTrue())
+			})
+
+			It("should return false when annotation is set but labels are used", func() {
+				vm.Annotations = map[string]string{
+					utils.AnnotationPciPassthrough: `{"devices": ["0000:00:02.0"]}`,
+				}
+				Expect(feature.IsEnabled(vm)).To(BeFalse())
+			})
+		})
 	})
 
 	Describe("Validate", func() {
@@ -152,6 +172,28 @@ var _ = Describe("PciPassthrough", func() {
 				err := feature.Validate(ctx, vm, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("duplicate"))
+			})
+		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				feature = features.NewPciPassthrough(utils.ConfigSourceLabels)
+			})
+
+			It("should accept valid PCI address from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationPciPassthrough: `{"devices": ["0000:00:02.0"]}`,
+				}
+				Expect(feature.Validate(ctx, vm, nil)).To(Succeed())
+			})
+
+			It("should reject invalid PCI address from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationPciPassthrough: `{"devices": ["invalid"]}`,
+				}
+				err := feature.Validate(ctx, vm, nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("invalid PCI address"))
 			})
 		})
 	})
@@ -243,6 +285,43 @@ var _ = Describe("PciPassthrough", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("invalid JSON"))
 				Expect(result.Applied).To(BeFalse())
+			})
+		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				feature = features.NewPciPassthrough(utils.ConfigSourceLabels)
+			})
+
+			It("should add hostDevice from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationPciPassthrough: `{"devices": ["0000:00:02.0"]}`,
+				}
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Applied).To(BeTrue())
+
+				devices := vm.Spec.Template.Spec.Domain.Devices.HostDevices
+				Expect(devices).To(HaveLen(1))
+				Expect(devices[0].DeviceName).To(Equal("pci_0000_00_02_0"))
+			})
+
+			It("should not apply when only annotation is set", func() {
+				vm.Annotations = map[string]string{
+					utils.AnnotationPciPassthrough: `{"devices": ["0000:00:02.0"]}`,
+				}
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Applied).To(BeFalse())
+			})
+
+			It("should add tracking annotation from label", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationPciPassthrough: `{"devices": ["0000:00:02.0"]}`,
+				}
+				result, err := feature.Apply(ctx, vm, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result.Annotations).To(HaveKey(utils.AnnotationPciPassthroughApplied))
 			})
 		})
 	})
