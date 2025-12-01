@@ -87,7 +87,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Invalid config-source value: %s (must be 'annotations' or 'labels')\n", configSource)
 			os.Exit(1)
 		}
-		cfg.ConfigSource = configSource
+		cfg.ConfigSource = utils.ParseConfigSource(configSource)
 	}
 
 	// Set up logger with configured log level

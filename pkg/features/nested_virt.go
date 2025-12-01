@@ -16,11 +16,11 @@ import (
 // NestedVirtualization implements the nested virtualization feature
 type NestedVirtualization struct {
 	config       *config.NestedVirtConfig
-	configSource string
+	configSource utils.ConfigSource
 }
 
 // NewNestedVirtualization creates a new NestedVirtualization feature
-func NewNestedVirtualization(cfg *config.NestedVirtConfig, configSource string) *NestedVirtualization {
+func NewNestedVirtualization(cfg *config.NestedVirtConfig, configSource utils.ConfigSource) *NestedVirtualization {
 	return &NestedVirtualization{
 		config:       cfg,
 		configSource: configSource,

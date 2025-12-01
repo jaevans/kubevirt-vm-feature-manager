@@ -24,11 +24,11 @@ type PCIPassthroughSpec struct {
 
 // PciPassthrough implements PCI device passthrough feature
 type PciPassthrough struct {
-	configSource string
+	configSource utils.ConfigSource
 }
 
 // NewPciPassthrough creates a new PciPassthrough feature
-func NewPciPassthrough(configSource string) *PciPassthrough {
+func NewPciPassthrough(configSource utils.ConfigSource) *PciPassthrough {
 	return &PciPassthrough{
 		configSource: configSource,
 	}

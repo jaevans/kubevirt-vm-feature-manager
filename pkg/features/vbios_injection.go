@@ -30,11 +30,11 @@ type HookSidecar struct {
 
 // VBiosInjection implements vBIOS injection via KubeVirt hook sidecar
 type VBiosInjection struct {
-	configSource string
+	configSource utils.ConfigSource
 }
 
 // NewVBiosInjection creates a new VBiosInjection feature
-func NewVBiosInjection(configSource string) *VBiosInjection {
+func NewVBiosInjection(configSource utils.ConfigSource) *VBiosInjection {
 	return &VBiosInjection{
 		configSource: configSource,
 	}

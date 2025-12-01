@@ -22,11 +22,11 @@ var devicePluginNameRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\
 // It adds Kubernetes device plugin resources to the VM's resource limits,
 // enabling GPU passthrough via device plugins like nvidia.com/gpu.
 type GpuDevicePlugin struct {
-	configSource string
+	configSource utils.ConfigSource
 }
 
 // NewGpuDevicePlugin creates a new GpuDevicePlugin instance.
-func NewGpuDevicePlugin(configSource string) *GpuDevicePlugin {
+func NewGpuDevicePlugin(configSource utils.ConfigSource) *GpuDevicePlugin {
 	return &GpuDevicePlugin{
 		configSource: configSource,
 	}

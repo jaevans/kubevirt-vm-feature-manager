@@ -125,7 +125,7 @@ var _ = Describe("Config", func() {
 			})
 
 			It("should override config source from environment", func() {
-				Expect(os.Setenv("CONFIG_SOURCE", utils.ConfigSourceLabels)).To(Succeed())
+				Expect(os.Setenv("CONFIG_SOURCE", string(utils.ConfigSourceLabels))).To(Succeed())
 				cfg := config.LoadConfig()
 				Expect(cfg.ConfigSource).To(Equal(utils.ConfigSourceLabels))
 			})

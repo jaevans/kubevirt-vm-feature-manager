@@ -64,11 +64,16 @@ const (
 	ErrorHandlingAllowAndLog = "allow-and-log"
 	// ErrorHandlingStripLabel removes the failing feature annotation and allows the VM through
 	ErrorHandlingStripLabel = "strip-label"
+)
 
+// ConfigSource represents where to read feature configuration from
+type ConfigSource string
+
+const (
 	// ConfigSourceAnnotations reads feature configuration from VM annotations (default)
-	ConfigSourceAnnotations = "annotations"
+	ConfigSourceAnnotations ConfigSource = "annotations"
 	// ConfigSourceLabels reads feature configuration from VM labels
-	ConfigSourceLabels = "labels"
+	ConfigSourceLabels ConfigSource = "labels"
 )
 
 // IsTruthyValue checks if a string value represents a boolean "true"
@@ -84,7 +89,7 @@ func IsTruthyValue(value string) bool {
 
 // IsValidConfigSource checks if the provided config source is valid
 func IsValidConfigSource(source string) bool {
-	switch strings.ToLower(source) {
+	switch ConfigSource(strings.ToLower(source)) {
 	case ConfigSourceAnnotations, ConfigSourceLabels:
 		return true
 	default:
@@ -92,11 +97,23 @@ func IsValidConfigSource(source string) bool {
 	}
 }
 
+// ParseConfigSource parses a string to ConfigSource, returning the default if invalid
+func ParseConfigSource(source string) ConfigSource {
+	switch ConfigSource(strings.ToLower(source)) {
+	case ConfigSourceAnnotations:
+		return ConfigSourceAnnotations
+	case ConfigSourceLabels:
+		return ConfigSourceLabels
+	default:
+		return ConfigSourceAnnotations
+	}
+}
+
 // GetConfigValue retrieves a configuration value from either annotations or labels
 // based on the configSource setting. Returns the value and whether it was found.
-func GetConfigValue(configSource string, annotations, labels map[string]string, key string) (string, bool) {
+func GetConfigValue(configSource ConfigSource, annotations, labels map[string]string, key string) (string, bool) {
 	var source map[string]string
-	if strings.ToLower(configSource) == ConfigSourceLabels {
+	if configSource == ConfigSourceLabels {
 		source = labels
 	} else {
 		source = annotations
@@ -109,8 +126,8 @@ func GetConfigValue(configSource string, annotations, labels map[string]string, 
 }
 
 // GetConfigMap returns either annotations or labels based on the configSource setting.
-func GetConfigMap(configSource string, annotations, labels map[string]string) map[string]string {
-	if strings.ToLower(configSource) == ConfigSourceLabels {
+func GetConfigMap(configSource ConfigSource, annotations, labels map[string]string) map[string]string {
+	if configSource == ConfigSourceLabels {
 		return labels
 	}
 	return annotations
