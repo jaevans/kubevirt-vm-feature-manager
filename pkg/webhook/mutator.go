@@ -158,16 +158,17 @@ func (m *Mutator) hasEnabledFeatures(vm *kubevirtv1.VirtualMachine) bool {
 func (m *Mutator) logFeatureDetection(ctx context.Context, vm *kubevirtv1.VirtualMachine) {
 	logger := log.FromContext(ctx).V(1) // V(1) = debug level
 
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		logger.Info("VM has no annotations", "vm", vm.Name)
+	configMap := utils.GetConfigMap(m.config.ConfigSource, vm.GetAnnotations(), vm.GetLabels())
+	if configMap == nil {
+		logger.Info("VM has no configuration source data", "vm", vm.Name, "configSource", m.config.ConfigSource)
 		return
 	}
 
-	logger.Info("VM annotations for feature detection",
+	logger.Info("VM configuration for feature detection",
 		"vm", vm.Name,
-		"annotationCount", len(annotations),
-		"annotations", annotations)
+		"configSource", m.config.ConfigSource,
+		"configCount", len(configMap),
+		"config", configMap)
 
 	for _, feature := range m.features {
 		enabled := feature.IsEnabled(vm)

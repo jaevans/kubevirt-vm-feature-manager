@@ -15,13 +15,15 @@ import (
 
 // NestedVirtualization implements the nested virtualization feature
 type NestedVirtualization struct {
-	config *config.NestedVirtConfig
+	config       *config.NestedVirtConfig
+	configSource string
 }
 
 // NewNestedVirtualization creates a new NestedVirtualization feature
-func NewNestedVirtualization(cfg *config.NestedVirtConfig) *NestedVirtualization {
+func NewNestedVirtualization(cfg *config.NestedVirtConfig, configSource string) *NestedVirtualization {
 	return &NestedVirtualization{
-		config: cfg,
+		config:       cfg,
+		configSource: configSource,
 	}
 }
 
@@ -30,18 +32,13 @@ func (f *NestedVirtualization) Name() string {
 	return utils.FeatureNestedVirt
 }
 
-// IsEnabled checks if nested virtualization is requested via annotations
+// IsEnabled checks if nested virtualization is requested via annotations or labels
 func (f *NestedVirtualization) IsEnabled(vm *kubevirtv1.VirtualMachine) bool {
 	if !f.config.Enabled {
 		return false
 	}
 
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		return false
-	}
-
-	value, exists := annotations[utils.AnnotationNestedVirt]
+	value, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationNestedVirt)
 	return exists && utils.IsTruthyValue(value)
 }
 
@@ -103,18 +100,13 @@ func (f *NestedVirtualization) Apply(ctx context.Context, vm *kubevirtv1.Virtual
 
 // Validate performs basic validation
 func (f *NestedVirtualization) Validate(_ context.Context, vm *kubevirtv1.VirtualMachine, _ client.Client) error {
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		return nil
-	}
-
-	// Check if annotation is present
-	value, exists := annotations[utils.AnnotationNestedVirt]
+	// Check if config value is present
+	value, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationNestedVirt)
 	if !exists {
 		return nil
 	}
 
-	// If annotation exists, validate its value
+	// If config value exists, validate it
 	if value != "enabled" {
 		return fmt.Errorf("invalid value for %s: %s (expected 'enabled')",
 			utils.AnnotationNestedVirt, value)

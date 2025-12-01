@@ -39,6 +39,7 @@ spec:
           - --cert-dir={{ .Values.webhook.certDir }}
           - --error-handling={{ .Values.errorHandling.mode }}
           - --log-level={{ .Values.logLevel }}
+          - --config-source={{ .Values.configSource }}
         ports:
         - name: webhook
           containerPort: {{ .Values.webhook.port }}

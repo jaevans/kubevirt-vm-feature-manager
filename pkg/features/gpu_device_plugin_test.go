@@ -22,7 +22,7 @@ var _ = Describe("GpuDevicePlugin", func() {
 	)
 
 	BeforeEach(func() {
-		feature = features.NewGpuDevicePlugin()
+		feature = features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
 		ctx = context.Background()
 
 		vm = &kubevirtv1.VirtualMachine{

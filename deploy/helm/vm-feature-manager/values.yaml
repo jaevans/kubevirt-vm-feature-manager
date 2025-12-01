@@ -13,6 +13,10 @@ image:
 # Use 'debug' to see detailed feature detection information
 logLevel: info
 
+# Configuration source: annotations or labels
+# Use 'labels' if annotations are not propagated (e.g., Rancher MachineConfig)
+configSource: annotations
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""

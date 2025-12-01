@@ -28,7 +28,7 @@ var _ = Describe("NestedVirtualization", func() {
 			Enabled:       true,
 			AutoDetectCPU: true,
 		}
-		feature = features.NewNestedVirtualization(cfg)
+		feature = features.NewNestedVirtualization(cfg, utils.ConfigSourceAnnotations)
 
 		// Create basic VM
 		vm = &kubevirtv1.VirtualMachine{
@@ -89,13 +89,37 @@ var _ = Describe("NestedVirtualization", func() {
 					Enabled:       false,
 					AutoDetectCPU: true,
 				}
-				feature = features.NewNestedVirtualization(cfg)
+				feature = features.NewNestedVirtualization(cfg, utils.ConfigSourceAnnotations)
 				vm.Annotations = map[string]string{
 					utils.AnnotationNestedVirt: "enabled",
 				}
 			})
 
 			It("should return false", func() {
+				Expect(feature.IsEnabled(vm)).To(BeFalse())
+			})
+		})
+
+		Context("when using labels as config source", func() {
+			BeforeEach(func() {
+				cfg := &config.NestedVirtConfig{
+					Enabled:       true,
+					AutoDetectCPU: true,
+				}
+				feature = features.NewNestedVirtualization(cfg, utils.ConfigSourceLabels)
+			})
+
+			It("should return true when label is set", func() {
+				vm.Labels = map[string]string{
+					utils.AnnotationNestedVirt: "enabled",
+				}
+				Expect(feature.IsEnabled(vm)).To(BeTrue())
+			})
+
+			It("should return false when annotation is set but labels are used", func() {
+				vm.Annotations = map[string]string{
+					utils.AnnotationNestedVirt: "enabled",
+				}
 				Expect(feature.IsEnabled(vm)).To(BeFalse())
 			})
 		})
@@ -270,7 +294,7 @@ var _ = Describe("NestedVirtualization", func() {
 					Enabled:       true,
 					AutoDetectCPU: false,
 				}
-				feature = features.NewNestedVirtualization(cfg)
+				feature = features.NewNestedVirtualization(cfg, utils.ConfigSourceAnnotations)
 				vm.Annotations = map[string]string{
 					utils.AnnotationNestedVirt: "enabled",
 				}

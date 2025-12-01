@@ -23,11 +23,15 @@ type PCIPassthroughSpec struct {
 }
 
 // PciPassthrough implements PCI device passthrough feature
-type PciPassthrough struct{}
+type PciPassthrough struct {
+	configSource string
+}
 
 // NewPciPassthrough creates a new PciPassthrough feature
-func NewPciPassthrough() *PciPassthrough {
-	return &PciPassthrough{}
+func NewPciPassthrough(configSource string) *PciPassthrough {
+	return &PciPassthrough{
+		configSource: configSource,
+	}
 }
 
 // Name returns the feature name
@@ -35,25 +39,15 @@ func (f *PciPassthrough) Name() string {
 	return utils.FeaturePciPassthrough
 }
 
-// IsEnabled checks if PCI passthrough is requested via annotations
+// IsEnabled checks if PCI passthrough is requested via annotations or labels
 func (f *PciPassthrough) IsEnabled(vm *kubevirtv1.VirtualMachine) bool {
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		return false
-	}
-
-	value, exists := annotations[utils.AnnotationPciPassthrough]
+	value, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationPciPassthrough)
 	return exists && value != ""
 }
 
 // Validate performs validation of PCI passthrough configuration
 func (f *PciPassthrough) Validate(_ context.Context, vm *kubevirtv1.VirtualMachine, _ client.Client) error {
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		return nil
-	}
-
-	value, exists := annotations[utils.AnnotationPciPassthrough]
+	value, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationPciPassthrough)
 	if !exists {
 		return nil
 	}
@@ -91,12 +85,7 @@ func (f *PciPassthrough) Apply(ctx context.Context, vm *kubevirtv1.VirtualMachin
 	logger := log.FromContext(ctx)
 	result := NewMutationResult()
 
-	annotations := vm.GetAnnotations()
-	if annotations == nil {
-		return result, nil
-	}
-
-	value, exists := annotations[utils.AnnotationPciPassthrough]
+	value, exists := utils.GetConfigValue(f.configSource, vm.GetAnnotations(), vm.GetLabels(), utils.AnnotationPciPassthrough)
 	if !exists || value == "" {
 		return result, nil
 	}

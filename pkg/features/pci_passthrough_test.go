@@ -20,7 +20,7 @@ var _ = Describe("PciPassthrough", func() {
 	)
 
 	BeforeEach(func() {
-		feature = features.NewPciPassthrough()
+		feature = features.NewPciPassthrough(utils.ConfigSourceAnnotations)
 		ctx = context.Background()
 
 		vm = &kubevirtv1.VirtualMachine{

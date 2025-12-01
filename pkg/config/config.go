@@ -21,6 +21,9 @@ type Config struct {
 	// Error handling
 	ErrorHandlingMode string
 
+	// Configuration source: "annotations" or "labels"
+	ConfigSource string
+
 	// Features configuration
 	Features FeaturesConfig
 
@@ -76,6 +79,7 @@ func LoadConfig() *Config {
 		CertDir:                getEnv("CERT_DIR", "/etc/webhook/certs"),
 		LogLevel:               getEnv("LOG_LEVEL", "info"),
 		ErrorHandlingMode:      getEnv("ERROR_HANDLING_MODE", utils.ErrorHandlingReject),
+		ConfigSource:           getEnv("CONFIG_SOURCE", utils.ConfigSourceAnnotations),
 		AddTrackingAnnotations: getEnvAsBool("ADD_TRACKING_ANNOTATIONS", true),
 		WebhookVersion:         getEnv("WEBHOOK_VERSION", "v0.1.0"),
 		Features: FeaturesConfig{
