@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	kubevirtv1 "kubevirt.io/api/core/v1"
@@ -19,11 +20,13 @@ import (
 )
 
 var (
-	cfg       *rest.Config
-	k8sClient client.Client
-	testEnv   *envtest.Environment
-	ctx       context.Context
-	cancel    context.CancelFunc
+	cfg             *rest.Config
+	k8sClient       client.Client
+	webhookScheme   *runtime.Scheme // Scheme used by webhook (mirrors main.go)
+	webhookK8sClient client.Client   // Client using webhook's scheme
+	testEnv         *envtest.Environment
+	ctx             context.Context
+	cancel          context.CancelFunc
 )
 
 func TestIntegration(t *testing.T) {
@@ -55,6 +58,20 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	// Create a separate scheme that mirrors main.go's scheme initialization
+	// This will catch missing AddToScheme() calls in main.go
+	// IMPORTANT: Keep this in sync with cmd/webhook/main.go init() function
+	webhookScheme = runtime.NewScheme()
+	err = corev1.AddToScheme(webhookScheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = kubevirtv1.AddToScheme(webhookScheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Create a client using the webhook's scheme - this is what the webhook uses
+	webhookK8sClient, err = client.New(cfg, client.Options{Scheme: webhookScheme})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(webhookK8sClient).NotTo(BeNil())
 
 	// Create test namespace
 	ns := &corev1.Namespace{
