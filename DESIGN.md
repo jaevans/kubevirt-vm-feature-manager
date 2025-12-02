@@ -543,6 +543,11 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get"]
+
+  # Read secrets for userdata directives
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
   
   # Read KubeVirt resource for version detection
   - apiGroups: ["kubevirt.io"]
@@ -571,6 +576,11 @@ rules:
 - **Timeout**: 10s timeout to prevent hanging admissions
 - **Reinvocation**: `reinvocationPolicy: IfNeeded` (allow other webhooks to run first)
 - **Scope**: Only mutate VirtualMachine resources in configured namespaces
+
+### Userdata Secret Access
+
+- The webhook reads secrets referenced by cloud-init in the VM's namespace without additional labels or annotations.
+- Recommendation: Use namespace-scoped RBAC to limit which secrets are readable; operational assumption is if you can create a VM in a namespace, you can read its referenced Secret.
 
 ## Code Quality Standards
 

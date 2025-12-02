@@ -1,0 +1,196 @@
+---
+# Example VirtualMachine using userdata directives for feature activation
+# This approach works in Rancher/Harvester where VM annotations aren't directly accessible
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: ubuntu-vm-with-userdata-features
+  namespace: default
+  labels:
+    app: ubuntu-vm
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: ubuntu-vm-with-userdata-features
+    spec:
+      domain:
+        devices:
+          disks:
+            - name: containerdisk
+              disk:
+                bus: virtio
+            - name: cloudinitdisk
+              disk:
+                bus: virtio
+          interfaces:
+            - name: default
+              masquerade: {}
+        resources:
+          requests:
+            memory: 2Gi
+            cpu: 2
+      networks:
+        - name: default
+          pod: {}
+      volumes:
+        - name: containerdisk
+          containerDisk:
+            image: quay.io/containerdisks/ubuntu:22.04
+        - name: cloudinitdisk
+          cloudInitNoCloud:
+            userData: |
+              #cloud-config
+              # VM Feature Manager directives - processed by webhook before VM creation
+              # @kubevirt-feature: nested-virt=enabled
+              # @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
+              
+              # Standard cloud-init configuration
+              hostname: ubuntu-vm
+              users:
+                - name: ubuntu
+                  sudo: ALL=(ALL) NOPASSWD:ALL
+                  shell: /bin/bash
+                  ssh_authorized_keys:
+                    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... your-ssh-key-here
+              
+              packages:
+                - qemu-guest-agent
+              
+              runcmd:
+                - systemctl enable qemu-guest-agent
+                - systemctl start qemu-guest-agent
+---
+# Example with base64-encoded userdata
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: ubuntu-vm-base64-userdata
+  namespace: default
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: ubuntu-vm-base64-userdata
+    spec:
+      domain:
+        devices:
+          disks:
+            - name: containerdisk
+              disk:
+                bus: virtio
+            - name: cloudinitdisk
+              disk:
+                bus: virtio
+        resources:
+          requests:
+            memory: 2Gi
+      volumes:
+        - name: containerdisk
+          containerDisk:
+            image: quay.io/containerdisks/ubuntu:22.04
+        - name: cloudinitdisk
+          cloudInitNoCloud:
+            # Base64-encoded userdata with feature directives
+            # Decoded content:
+            # #cloud-config
+            # # @kubevirt-feature: nested-virt=enabled
+            # # @kubevirt-feature: pci-passthrough={"devices":["0000:00:02.0"]}
+            # hostname: ubuntu-vm
+            userDataBase64: I2Nsb3VkLWNvbmZpZwojIEBrdWJldmlydC1mZWF0dXJlOiBuZXN0ZWQtdmlydD1lbmFibGVkCiMgQGt1YmV2aXJ0LWZlYXR1cmU6IHBjaS1wYXNzdGhyb3VnaD17ImRldmljZXMiOlsiMDAwMDowMDowMi4wIl19Cmhvc3RuYW1lOiB1YnVudHUtdm0K
+---
+# Example with Secret reference for userdata
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vm-userdata-with-features
+  namespace: default
+type: Opaque
+stringData:
+  userdata: |
+    #cloud-config
+    # @kubevirt-feature: nested-virt=enabled
+    # @kubevirt-feature: vbios-injection=my-vbios-configmap
+    hostname: ubuntu-vm
+    users:
+      - name: ubuntu
+        sudo: ALL=(ALL) NOPASSWD:ALL
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: ubuntu-vm-secret-userdata
+  namespace: default
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: ubuntu-vm-secret-userdata
+    spec:
+      domain:
+        devices:
+          disks:
+            - name: containerdisk
+              disk:
+                bus: virtio
+            - name: cloudinitdisk
+              disk:
+                bus: virtio
+        resources:
+          requests:
+            memory: 2Gi
+      volumes:
+        - name: containerdisk
+          containerDisk:
+            image: quay.io/containerdisks/ubuntu:22.04
+        - name: cloudinitdisk
+          cloudInitNoCloud:
+            # Reference to Secret containing userdata with feature directives
+            userDataSecretRef:
+              name: vm-userdata-with-features
+---
+# Example combining annotation and userdata features
+# Note: Annotations take precedence over userdata directives
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: ubuntu-vm-mixed-features
+  namespace: default
+  annotations:
+    # This annotation will override the userdata directive
+    vm-feature-manager.io/nested-virt: "enabled"
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: ubuntu-vm-mixed-features
+    spec:
+      domain:
+        devices:
+          disks:
+            - name: containerdisk
+              disk:
+                bus: virtio
+            - name: cloudinitdisk
+              disk:
+                bus: virtio
+        resources:
+          requests:
+            memory: 2Gi
+      volumes:
+        - name: containerdisk
+          containerDisk:
+            image: quay.io/containerdisks/ubuntu:22.04
+        - name: cloudinitdisk
+          cloudInitNoCloud:
+            userData: |
+              #cloud-config
+              # This will be ignored because annotation exists
+              # @kubevirt-feature: nested-virt=disabled
+              # This will be applied (no annotation override)
+              # @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
+              hostname: ubuntu-vm

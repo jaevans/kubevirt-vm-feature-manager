@@ -15,6 +15,7 @@ import (
 
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/config"
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/features"
+	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/userdata"
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/utils"
 )
 
@@ -29,17 +30,19 @@ func init() {
 
 // Mutator handles VM mutation based on feature annotations
 type Mutator struct {
-	client   client.Client
-	config   *config.Config
-	features []features.Feature
+	client        client.Client
+	config        *config.Config
+	features      []features.Feature
+	userdataParser *userdata.Parser
 }
 
 // NewMutator creates a new Mutator
 func NewMutator(client client.Client, cfg *config.Config, featureList []features.Feature) *Mutator {
 	return &Mutator{
-		client:   client,
-		config:   cfg,
-		features: featureList,
+		client:        client,
+		config:        cfg,
+		features:      featureList,
+		userdataParser: userdata.NewParser(client),
 	}
 }
 
@@ -59,24 +62,49 @@ func (m *Mutator) Handle(ctx context.Context, req *admissionv1.AdmissionRequest)
 		"namespace", vm.Namespace,
 		"operation", req.Operation)
 
-	// Log detailed feature detection information for debugging
-	m.logFeatureDetection(ctx, vm)
-
-	// Check if any features are enabled
-	if !m.hasEnabledFeatures(vm) {
-		logger.Info("No features enabled for VM", "vm", vm.Name)
-		return m.allowResponse("No features requested"), nil
+	// Parse userdata for feature directives (non-fatal if fails)
+	userdataFeatures, err := m.userdataParser.ParseFeatures(ctx, vm)
+	if err != nil {
+		logger.Error(err, "Failed to parse userdata features")
+		// Non-fatal: continue with annotation-based features only
+		userdataFeatures = nil
+	} else if len(userdataFeatures) > 0 {
+		logger.Info("Found feature directives in userdata", "features", userdataFeatures)
 	}
 
 	// Create a copy to mutate
 	mutatedVM := vm.DeepCopy()
+
+	// Merge userdata features into mutated VM's annotations (annotations take precedence)
+	if len(userdataFeatures) > 0 {
+		if mutatedVM.Annotations == nil {
+			mutatedVM.Annotations = make(map[string]string)
+		}
+		for key, value := range userdataFeatures {
+			if _, exists := mutatedVM.Annotations[key]; !exists {
+				mutatedVM.Annotations[key] = value
+				logger.Info("Applied userdata feature directive", "key", key, "value", value)
+			} else {
+				logger.Info("Skipping userdata feature (annotation exists)", "key", key)
+			}
+		}
+	}
+
+	// Log detailed feature detection information for debugging
+	m.logFeatureDetection(ctx, mutatedVM)
+
+	// Check if any features are enabled (check mutatedVM with merged userdata)
+	if !m.hasEnabledFeatures(mutatedVM) {
+		logger.Info("No features enabled for VM", "vm", vm.Name)
+		return m.allowResponse("No features requested"), nil
+	}
 
 	// Apply features
 	appliedFeatures := []string{}
 	allAnnotations := make(map[string]string)
 
 	for _, feature := range m.features {
-		if !feature.IsEnabled(vm) {
+		if !feature.IsEnabled(mutatedVM) {
 			continue
 		}
 
