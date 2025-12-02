@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"go.uber.org/zap/zapcore"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,6 +38,7 @@ var (
 )
 
 func init() {
+	_ = corev1.AddToScheme(scheme)
 	_ = kubevirtv1.AddToScheme(scheme)
 }
 

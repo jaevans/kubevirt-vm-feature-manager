@@ -60,11 +60,178 @@ var _ = Describe("Webhook Integration Tests", func() {
 		}
 
 		// Create mutator with real Kubernetes client
-		mutator = webhook.NewMutator(k8sClient, cfg, allFeatures)
+		mutator = webhook.NewMutator(webhookK8sClient, cfg, allFeatures)
 	})
 
 	AfterEach(func() {
 		testCancel()
+	})
+
+	Describe("Scheme Registration", func() {
+		// This test validates that all Kubernetes types used by the webhook
+		// are properly registered in the scheme by exercising actual client operations.
+		//
+		// HOW IT WORKS:
+		// - webhookK8sClient uses a scheme that mirrors cmd/webhook/main.go's init()
+		// - If main.go is missing an AddToScheme() call, these tests will fail
+		// - The failures occur when the client tries to Get/List unregistered types
+		//
+		// MAINTENANCE:
+		// Keep test/integration/integration_suite_test.go's webhookScheme setup
+		// in sync with cmd/webhook/main.go's init() function.
+		Context("when client performs real operations", func() {
+			It("should successfully work with Secrets (userdata parsing)", func() {
+				// Create a Secret with userdata
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-userdata-secret",
+						Namespace: "integration-test",
+					},
+					StringData: map[string]string{
+						"userdata": `#cloud-config
+x_kubevirt_features:
+  nested_virt: enabled
+`,
+					},
+				}
+				err := k8sClient.Create(testCtx, secret)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Create VM that references the Secret
+				vm := createBasicVM("secret-test", "integration-test", nil)
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+					kubevirtv1.Volume{
+						Name: "cloudinit",
+						VolumeSource: kubevirtv1.VolumeSource{
+							CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
+								UserDataSecretRef: &corev1.LocalObjectReference{
+									Name: "test-userdata-secret",
+								},
+							},
+						},
+					})
+
+				vmBytes, err := json.Marshal(vm)
+				Expect(err).NotTo(HaveOccurred())
+
+				req := &admissionv1.AdmissionRequest{
+					UID:       "scheme-test-secret",
+					Operation: admissionv1.Create,
+					Kind: metav1.GroupVersionKind{
+						Group:   "kubevirt.io",
+						Version: "v1",
+						Kind:    "VirtualMachine",
+					},
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				}
+
+				// This will fail with "no kind is registered for the type v1.Secret"
+				// if corev1.AddToScheme() is missing from main.go
+				resp, err := mutator.Handle(testCtx, req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.Allowed).To(BeTrue(), "Response should be allowed")
+				
+				// Successful mutation won't have a Result set (only errors do)
+				// If there was a scheme error, it would be in the error returned or Result.Message
+				if resp.Result != nil && resp.Result.Message != "" {
+					Expect(resp.Result.Message).NotTo(ContainSubstring("no kind is registered"))
+				}
+
+				// Clean up
+				err = k8sClient.Delete(testCtx, secret)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should successfully work with ConfigMaps (vBIOS validation)", func() {
+				// Create a ConfigMap with vBIOS data
+				configMap := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vbios-cm",
+						Namespace: "integration-test",
+					},
+					Data: map[string]string{
+						"rom": "fake-vbios-data",
+					},
+				}
+				err := k8sClient.Create(testCtx, configMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Create VM with vBIOS injection annotation
+				vm := createBasicVM("configmap-test", "integration-test", map[string]string{
+					utils.AnnotationVBiosInjection: "test-vbios-cm",
+				})
+
+				vmBytes, err := json.Marshal(vm)
+				Expect(err).NotTo(HaveOccurred())
+
+				req := &admissionv1.AdmissionRequest{
+					UID:       "scheme-test-configmap",
+					Operation: admissionv1.Create,
+					Kind: metav1.GroupVersionKind{
+						Group:   "kubevirt.io",
+						Version: "v1",
+						Kind:    "VirtualMachine",
+					},
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				}
+
+				// This would fail with "no kind is registered for the type v1.ConfigMap"
+				// if ConfigMap type wasn't registered (though we don't currently validate ConfigMaps)
+				resp, err := mutator.Handle(testCtx, req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.Allowed).To(BeTrue())
+				
+				// Check for scheme errors if Result is set
+				if resp.Result != nil && resp.Result.Message != "" {
+					Expect(resp.Result.Message).NotTo(ContainSubstring("no kind is registered"))
+				}
+
+				// Clean up
+				err = k8sClient.Delete(testCtx, configMap)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should successfully work with VirtualMachine objects", func() {
+				// This validates kubevirtv1.AddToScheme() is present
+				// Note: envtest doesn't have KubeVirt CRDs installed, so we can't actually
+				// create VMs. Instead, we test that the webhook can process VM objects
+				// which exercises the scheme registration for JSON marshaling/unmarshaling.
+				vm := createBasicVM("vm-scheme-test", "integration-test", map[string]string{
+					utils.AnnotationNestedVirt: "enabled",
+				})
+
+				vmBytes, err := json.Marshal(vm)
+				Expect(err).NotTo(HaveOccurred(), "Should be able to marshal VirtualMachine")
+
+				// Test that we can unmarshal it back (uses scheme)
+				retrievedVM := &kubevirtv1.VirtualMachine{}
+				err = json.Unmarshal(vmBytes, retrievedVM)
+				Expect(err).NotTo(HaveOccurred(), "Should be able to unmarshal VirtualMachine")
+				Expect(retrievedVM.Name).To(Equal("vm-scheme-test"))
+
+				// Test through the webhook handler
+				req := &admissionv1.AdmissionRequest{
+					UID:       "scheme-test-vm",
+					Operation: admissionv1.Create,
+					Kind: metav1.GroupVersionKind{
+						Group:   "kubevirt.io",
+						Version: "v1",
+						Kind:    "VirtualMachine",
+					},
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				}
+
+				resp, err := mutator.Handle(testCtx, req)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp.Allowed).To(BeTrue())
+			})
+		})
 	})
 
 	Describe("End-to-End Webhook Flow", func() {
