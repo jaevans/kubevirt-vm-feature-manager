@@ -1057,7 +1057,8 @@ var _ = Describe("Mutator", func() {
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
 												UserData: `#cloud-config
-# @kubevirt-feature: nested-virt=enabled
+x_kubevirt_features:
+  nested_virt: enabled
 users:
   - name: ubuntu
 `,
@@ -1158,8 +1159,9 @@ users:
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
 												UserData: `#cloud-config
-# @kubevirt-feature: nested-virt=enabled
-# @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
+x_kubevirt_features:
+  nested_virt: enabled
+  gpu_device_plugin: nvidia.com/gpu
 users:
   - name: ubuntu
 `,
@@ -1224,46 +1226,47 @@ users:
 						Name:      "test-vm",
 						Namespace: "default",
 						Annotations: map[string]string{
-							// Annotation specifies a different GPU than userdata
-							utils.AnnotationGpuDevicePlugin: "amd.com/gpu",
-						},
+						// Annotation specifies a different GPU than userdata
+						utils.AnnotationGpuDevicePlugin: "amd.com/gpu",
 					},
-					Spec: kubevirtv1.VirtualMachineSpec{
-						Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
-							Spec: kubevirtv1.VirtualMachineInstanceSpec{
-								Domain: kubevirtv1.DomainSpec{},
-								Volumes: []kubevirtv1.Volume{
-									{
-										Name: "cloudinit",
-										VolumeSource: kubevirtv1.VolumeSource{
-											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
-												UserData: `#cloud-config
-# @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{},
+							Volumes: []kubevirtv1.Volume{
+								{
+									Name: "cloudinit",
+									VolumeSource: kubevirtv1.VolumeSource{
+										CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
+											UserData: `#cloud-config
+x_kubevirt_features:
+  gpu_device_plugin: nvidia.com/gpu
 users:
   - name: ubuntu
 `,
-											},
 										},
 									},
 								},
 							},
 						},
 					},
-				}
+				},
+			}
 
-				vmBytes, err := json.Marshal(vm)
-				Expect(err).ToNot(HaveOccurred())
+			vmBytes, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
 
-				req := &admissionv1.AdmissionRequest{
-					UID:       "test-uid",
-					Operation: admissionv1.Create,
-					Object: runtime.RawExtension{
-						Raw: vmBytes,
-					},
-				}
+			req := &admissionv1.AdmissionRequest{
+				UID:       "test-uid",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: vmBytes,
+				},
+			}
 
-				gpuFeature := features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
-				mutator = NewMutator(nil, cfg, []features.Feature{gpuFeature})
+			gpuFeature := features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
+			mutator = NewMutator(nil, cfg, []features.Feature{gpuFeature})
 
 				response, err := mutator.Handle(ctx, req)
 				Expect(err).ToNot(HaveOccurred())
@@ -1301,46 +1304,47 @@ users:
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-vm",
 						Namespace: "default",
-						Annotations: map[string]string{
-							utils.AnnotationNestedVirt: "enabled",
-						},
+					Annotations: map[string]string{
+						utils.AnnotationNestedVirt: "enabled",
 					},
-					Spec: kubevirtv1.VirtualMachineSpec{
-						Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
-							Spec: kubevirtv1.VirtualMachineInstanceSpec{
-								Domain: kubevirtv1.DomainSpec{},
-								Volumes: []kubevirtv1.Volume{
-									{
-										Name: "cloudinit",
-										VolumeSource: kubevirtv1.VolumeSource{
-											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
-												UserData: `#cloud-config
-# @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{},
+							Volumes: []kubevirtv1.Volume{
+								{
+									Name: "cloudinit",
+									VolumeSource: kubevirtv1.VolumeSource{
+										CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
+											UserData: `#cloud-config
+x_kubevirt_features:
+  gpu_device_plugin: nvidia.com/gpu
 users:
   - name: ubuntu
 `,
-											},
 										},
 									},
 								},
 							},
 						},
 					},
-				}
+				},
+			}
 
-				vmBytes, err := json.Marshal(vm)
-				Expect(err).ToNot(HaveOccurred())
+			vmBytes, err := json.Marshal(vm)
+			Expect(err).ToNot(HaveOccurred())
 
-				req := &admissionv1.AdmissionRequest{
-					UID:       "test-uid",
-					Operation: admissionv1.Create,
-					Object: runtime.RawExtension{
-						Raw: vmBytes,
-					},
-				}
+			req := &admissionv1.AdmissionRequest{
+				UID:       "test-uid",
+				Operation: admissionv1.Create,
+				Object: runtime.RawExtension{
+					Raw: vmBytes,
+				},
+			}
 
-				nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
-					Enabled:       true,
+			nestedVirtFeature := features.NewNestedVirtualization(&config.NestedVirtConfig{
+				Enabled:       true,
 					AutoDetectCPU: true,
 				}, utils.ConfigSourceAnnotations)
 				gpuFeature := features.NewGpuDevicePlugin(utils.ConfigSourceAnnotations)
@@ -1551,7 +1555,8 @@ users:
 					},
 					Data: map[string][]byte{
 						"userdata": []byte(`#cloud-config
-# @kubevirt-feature: nested-virt=enabled
+x_kubevirt_features:
+  nested_virt: enabled
 users:
   - name: ubuntu
 `),

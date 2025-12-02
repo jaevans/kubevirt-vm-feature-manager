@@ -52,9 +52,12 @@ spec:
           cloudInitNoCloud:
             userData: |
               #cloud-config
-              # @kubevirt-feature: nested-virt=enabled
-              # @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
-              # @kubevirt-feature: pci-passthrough={"devices":["0000:00:02.0"]}
+              x_kubevirt_features:
+                nested_virt: enabled
+                gpu_device_plugin: nvidia.com/gpu
+                pci_passthrough:
+                  devices:
+                    - "0000:00:02.0"
               users:
                 - name: ubuntu
                   sudo: ALL=(ALL) NOPASSWD:ALL

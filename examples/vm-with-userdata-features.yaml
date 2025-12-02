@@ -42,9 +42,10 @@ spec:
           cloudInitNoCloud:
             userData: |
               #cloud-config
-              # VM Feature Manager directives - processed by webhook before VM creation
-              # @kubevirt-feature: nested-virt=enabled
-              # @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
+              # VM Feature Manager configuration
+              x_kubevirt_features:
+                nested_virt: enabled
+                gpu_device_plugin: nvidia.com/gpu
               
               # Standard cloud-init configuration
               hostname: ubuntu-vm
@@ -96,10 +97,13 @@ spec:
             # Base64-encoded userdata with feature directives
             # Decoded content:
             # #cloud-config
-            # # @kubevirt-feature: nested-virt=enabled
-            # # @kubevirt-feature: pci-passthrough={"devices":["0000:00:02.0"]}
+            # x_kubevirt_features:
+            #   nested_virt: enabled
+            #   pci_passthrough:
+            #     devices:
+            #       - "0000:00:02.0"
             # hostname: ubuntu-vm
-            userDataBase64: I2Nsb3VkLWNvbmZpZwojIEBrdWJldmlydC1mZWF0dXJlOiBuZXN0ZWQtdmlydD1lbmFibGVkCiMgQGt1YmV2aXJ0LWZlYXR1cmU6IHBjaS1wYXNzdGhyb3VnaD17ImRldmljZXMiOlsiMDAwMDowMDowMi4wIl19Cmhvc3RuYW1lOiB1YnVudHUtdm0K
+            userDataBase64: I2Nsb3VkLWNvbmZpZwp4X2t1YmV2aXJ0X2ZlYXR1cmVzOgogIG5lc3RlZF92aXJ0OiBlbmFibGVkCiAgcGNpX3Bhc3N0aHJvdWdoOgogICAgZGV2aWNlczoKICAgICAgLSAiMDAwMDowMDowMi4wIgpob3N0bmFtZTogdWJ1bnR1LXZtCg==
 ---
 # Example with Secret reference for userdata
 apiVersion: v1
@@ -111,8 +115,9 @@ type: Opaque
 stringData:
   userdata: |
     #cloud-config
-    # @kubevirt-feature: nested-virt=enabled
-    # @kubevirt-feature: vbios-injection=my-vbios-configmap
+    x_kubevirt_features:
+      nested_virt: enabled
+      vbios_injection: my-vbios-configmap
     hostname: ubuntu-vm
     users:
       - name: ubuntu
@@ -190,7 +195,8 @@ spec:
             userData: |
               #cloud-config
               # This will be ignored because annotation exists
-              # @kubevirt-feature: nested-virt=disabled
-              # This will be applied (no annotation override)
-              # @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
+              x_kubevirt_features:
+                nested_virt: disabled
+                # This will be applied (no annotation override)
+                gpu_device_plugin: nvidia.com/gpu
               hostname: ubuntu-vm
