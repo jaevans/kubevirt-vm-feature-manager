@@ -1,26 +1,21 @@
 // Package userdata provides parsing of feature directives from VM userdata.
-// It supports extracting @kubevirt-feature: directives from cloud-init userdata
+// It supports extracting x_kubevirt_features dictionary entries from cloud-init userdata
 // in various formats: plain text, base64-encoded, or Secret references.
 package userdata
 
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
-
-// featureDirectiveRegex matches lines like:
-// # @kubevirt-feature: nested-virt=enabled
-// # @kubevirt-feature: pci-passthrough={"devices":["0000:00:02.0"]}
-// Value is limited to 1024 characters to prevent regex DoS attacks
-var featureDirectiveRegex = regexp.MustCompile(`(?m)^\s*#\s*@kubevirt-feature:\s*([a-z0-9-]+)\s*=\s*([^\n]+?)\s*$`)
 
 // Parser extracts feature directives from VM userdata
 type Parser struct {
@@ -139,7 +134,7 @@ func (p *Parser) fetchSecretUserData(ctx context.Context, namespace, secretName 
 	return "", fmt.Errorf("no userdata found in secret %s/%s (tried keys: userdata, userData, user-data)", namespace, secretName)
 }
 
-// parseDirectives extracts @kubevirt-feature directives from userdata text
+// parseDirectives extracts x_kubevirt_features dictionary from userdata text
 func (p *Parser) parseDirectives(userData string) map[string]string {
 	features := make(map[string]string)
 
@@ -147,21 +142,72 @@ func (p *Parser) parseDirectives(userData string) map[string]string {
 	if len(userData) > 65536 { // 64KB limit
 		return features
 	}
-	matches := featureDirectiveRegex.FindAllStringSubmatch(userData, -1)
-	for _, match := range matches {
-		if len(match) == 3 {
-			featureName := strings.TrimSpace(match[1])
-			featureValue := strings.TrimSpace(match[2])
 
-			// Enforce max value length to prevent DoS
-			if len(featureValue) > 1024 {
-				continue // Skip overly long values
+	// Parse userdata as YAML to extract x_kubevirt_features
+	var cloudConfig map[string]interface{}
+	if err := yaml.Unmarshal([]byte(userData), &cloudConfig); err != nil {
+		// Not valid YAML or not a map, return empty features
+		// Log at debug level to help troubleshoot why features aren't being applied
+		log.Log.V(1).Info("Failed to parse userdata as YAML, skipping feature extraction", "error", err)
+		return features
+	}
+
+	// Look for x_kubevirt_features key
+	xKubevirtFeatures, exists := cloudConfig["x_kubevirt_features"]
+	if !exists {
+		return features
+	}
+
+	// Convert x_kubevirt_features to map
+	featuresMap, ok := xKubevirtFeatures.(map[string]interface{})
+	if !ok {
+		return features
+	}
+
+	// Process each feature
+	for featureName, featureValue := range featuresMap {
+		// Convert feature name to kebab-case (underscores to hyphens)
+		featureNameKebab := strings.ReplaceAll(featureName, "_", "-")
+
+		// Convert feature value to string
+		var valueStr string
+		switch v := featureValue.(type) {
+		case string:
+			valueStr = v
+		case bool:
+			if v {
+				valueStr = "enabled"
+			} else {
+				valueStr = "disabled"
 			}
-
-			// Map feature names to annotation keys
-			annotationKey := fmt.Sprintf("vm-feature-manager.io/%s", featureName)
-			features[annotationKey] = featureValue
+		case map[string]interface{}:
+			// Marshal back to JSON for complex values (e.g., pci-passthrough)
+			jsonBytes, err := json.Marshal(v)
+			if err != nil {
+				log.Log.V(1).Info("Failed to marshal complex feature value to JSON, skipping", "feature", featureName, "error", err)
+				continue
+			}
+			valueStr = string(jsonBytes)
+		default:
+			// Try to convert to string via JSON
+			jsonBytes, err := json.Marshal(v)
+			if err != nil {
+				log.Log.V(1).Info("Failed to marshal feature value to JSON, skipping", "feature", featureName, "type", fmt.Sprintf("%T", v), "error", err)
+				continue
+			}
+			valueStr = string(jsonBytes)
 		}
+
+		// Enforce max value length to prevent DoS.
+		// Limit is 1024 bytes per value, which is sufficient for all expected feature directives.
+		// If a larger value is needed, review and document the security implications before increasing.
+		if len(valueStr) > 1024 {
+			continue // Skip overly long values
+		}
+
+		// Map feature names to annotation keys
+		annotationKey := fmt.Sprintf("vm-feature-manager.io/%s", featureNameKebab)
+		features[annotationKey] = valueStr
 	}
 
 	return features

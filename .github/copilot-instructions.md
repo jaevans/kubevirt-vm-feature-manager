@@ -39,7 +39,7 @@
 - Error handling (global): `ERROR_HANDLING_MODE=reject|allow-and-log|strip-label`.
   - `strip-label` removes the failing feature's input annotation and allows admission.
 - vBIOS override sidecar image: `vm-feature-manager.io/sidecar-image`.
-- **Userdata directives**: Features can be specified in cloud-init userdata using `# @kubevirt-feature: <feature-name>=<value>` (e.g., `# @kubevirt-feature: nested-virt=enabled`). Supports plain text, base64, and Secret references. Annotations take precedence over userdata directives.
+- **Userdata directives**: Features can be specified in cloud-init userdata using `x_kubevirt_features` YAML dictionary (e.g., `x_kubevirt_features: { nested_virt: enabled }`). Supports plain text, base64, and Secret references. Annotations take precedence over userdata directives.
 
 ## Helm & Deployment
 - Chart: `deploy/helm/vm-feature-manager`. Values map to flags: `.webhook.port`, `.webhook.certDir`, `.errorHandling.mode`, `.logLevel`; extra env can be injected via `.Values.env`.
@@ -60,6 +60,7 @@
 - Userdata directives (for Rancher/Harvester):
   ```yaml
   #cloud-config
-  # @kubevirt-feature: nested-virt=enabled
-  # @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
+  x_kubevirt_features:
+    nested_virt: enabled
+    gpu_device_plugin: nvidia.com/gpu
   ```

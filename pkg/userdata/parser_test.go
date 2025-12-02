@@ -46,7 +46,8 @@ var _ = Describe("Userdata Parser", func() {
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
 												UserData: `#cloud-config
-# @kubevirt-feature: nested-virt=enabled
+x_kubevirt_features:
+  nested_virt: enabled
 users:
   - name: ubuntu
 `,
@@ -79,9 +80,12 @@ users:
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
 												UserData: `#cloud-config
-# @kubevirt-feature: nested-virt=enabled
-# @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu
-# @kubevirt-feature: pci-passthrough={"devices":["0000:00:02.0"]}
+x_kubevirt_features:
+  nested_virt: enabled
+  gpu_device_plugin: nvidia.com/gpu
+  pci_passthrough:
+    devices:
+      - "0000:00:02.0"
 users:
   - name: ubuntu
 `,
@@ -102,7 +106,7 @@ users:
 				Expect(features).To(HaveKeyWithValue("vm-feature-manager.io/pci-passthrough", `{"devices":["0000:00:02.0"]}`))
 			})
 
-			It("should handle directives with varying whitespace", func() {
+			It("should handle boolean values", func() {
 				vm := &kubevirtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-vm",
@@ -117,9 +121,9 @@ users:
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
 												UserData: `#cloud-config
-#@kubevirt-feature:nested-virt=enabled
-  # @kubevirt-feature: gpu-device-plugin = nvidia.com/gpu  
-#    @kubevirt-feature:   pci-passthrough  =  {"devices":["0000:00:02.0"]}
+x_kubevirt_features:
+  nested_virt: true
+  gpu_device_plugin: nvidia.com/gpu
 `,
 											},
 										},
@@ -132,10 +136,12 @@ users:
 
 				features, err := parser.ParseFeatures(ctx, vm)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(features).To(HaveLen(3))
+				Expect(features).To(HaveLen(2))
+				Expect(features).To(HaveKeyWithValue("vm-feature-manager.io/nested-virt", "enabled"))
+				Expect(features).To(HaveKeyWithValue("vm-feature-manager.io/gpu-device-plugin", "nvidia.com/gpu"))
 			})
 
-			It("should ignore non-matching lines", func() {
+			It("should ignore other cloud-config keys", func() {
 				vm := &kubevirtv1.VirtualMachine{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-vm",
@@ -150,10 +156,13 @@ users:
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
 												UserData: `#cloud-config
-# This is a regular comment
-# @kubevirt-feature: nested-virt=enabled
-# Another regular comment
-# @not-a-feature: something=else
+hostname: test-vm
+x_kubevirt_features:
+  nested_virt: enabled
+users:
+  - name: ubuntu
+packages:
+  - vim
 `,
 											},
 										},
@@ -186,7 +195,7 @@ users:
 										Name: "cloudinit",
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
-												UserDataBase64: "I2Nsb3VkLWNvbmZpZwojIEBrdWJldmlydC1mZWF0dXJlOiBuZXN0ZWQtdmlydD1lbmFibGVkCnVzZXJzOgogIC0gbmFtZTogdWJ1bnR1Cg==",
+												UserDataBase64: "I2Nsb3VkLWNvbmZpZwp4X2t1YmV2aXJ0X2ZlYXR1cmVzOgogIG5lc3RlZF92aXJ0OiBlbmFibGVkCnVzZXJzOgogIC0gbmFtZTogdWJ1bnR1Cg==",
 											},
 										},
 									},
@@ -240,7 +249,8 @@ users:
 					},
 					Data: map[string][]byte{
 						"userdata": []byte(`#cloud-config
-# @kubevirt-feature: nested-virt=enabled
+x_kubevirt_features:
+  nested_virt: enabled
 users:
   - name: ubuntu
 `),
@@ -286,7 +296,8 @@ users:
 					},
 					Data: map[string][]byte{
 						"user-data": []byte(`#cloud-config
-# @kubevirt-feature: nested-virt=enabled
+x_kubevirt_features:
+  nested_virt: enabled
 `),
 					},
 				}
@@ -370,7 +381,8 @@ users:
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitConfigDrive: &kubevirtv1.CloudInitConfigDriveSource{
 												UserData: `#cloud-config
-# @kubevirt-feature: nested-virt=enabled
+x_kubevirt_features:
+  nested_virt: enabled
 `,
 											},
 										},
@@ -402,7 +414,10 @@ users:
 										Name: "cloudinit1",
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitNoCloud: &kubevirtv1.CloudInitNoCloudSource{
-												UserData: `# @kubevirt-feature: nested-virt=enabled`,
+												UserData: `#cloud-config
+x_kubevirt_features:
+  nested_virt: enabled
+`,
 											},
 										},
 									},
@@ -410,7 +425,10 @@ users:
 										Name: "cloudinit2",
 										VolumeSource: kubevirtv1.VolumeSource{
 											CloudInitConfigDrive: &kubevirtv1.CloudInitConfigDriveSource{
-												UserData: `# @kubevirt-feature: gpu-device-plugin=nvidia.com/gpu`,
+												UserData: `#cloud-config
+x_kubevirt_features:
+  gpu_device_plugin: nvidia.com/gpu
+`,
 											},
 										},
 									},
