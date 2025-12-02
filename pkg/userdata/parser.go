@@ -147,6 +147,8 @@ func (p *Parser) parseDirectives(userData string) map[string]string {
 	var cloudConfig map[string]interface{}
 	if err := yaml.Unmarshal([]byte(userData), &cloudConfig); err != nil {
 		// Not valid YAML or not a map, return empty features
+		// Log at debug level to help troubleshoot why features aren't being applied
+		log.Log.V(1).Info("Failed to parse userdata as YAML, skipping feature extraction", "error", err)
 		return features
 	}
 
@@ -182,6 +184,7 @@ func (p *Parser) parseDirectives(userData string) map[string]string {
 			// Marshal back to JSON for complex values (e.g., pci-passthrough)
 			jsonBytes, err := json.Marshal(v)
 			if err != nil {
+				log.Log.V(1).Info("Failed to marshal complex feature value to JSON, skipping", "feature", featureName, "error", err)
 				continue
 			}
 			valueStr = string(jsonBytes)
@@ -189,13 +192,16 @@ func (p *Parser) parseDirectives(userData string) map[string]string {
 			// Try to convert to string via JSON
 			jsonBytes, err := json.Marshal(v)
 			if err != nil {
+				log.Log.V(1).Info("Failed to marshal feature value to JSON, skipping", "feature", featureName, "type", fmt.Sprintf("%T", v), "error", err)
 				continue
 			}
 			valueStr = string(jsonBytes)
 		}
 
-		// Enforce max value length to prevent DoS
-		if len(valueStr) > 4096 {
+		// Enforce max value length to prevent DoS.
+		// Limit is 1024 bytes per value, which is sufficient for all expected feature directives.
+		// If a larger value is needed, review and document the security implications before increasing.
+		if len(valueStr) > 1024 {
 			continue // Skip overly long values
 		}
 
