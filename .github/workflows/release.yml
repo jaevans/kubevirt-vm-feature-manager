@@ -83,7 +83,7 @@ jobs:
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" deploy/helm/vm-feature-manager/Chart.yaml
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
 
       - name: Package Helm chart
         run: helm package deploy/helm/vm-feature-manager
