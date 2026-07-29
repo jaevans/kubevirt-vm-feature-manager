@@ -21,6 +21,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
+
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/config"
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/features"
 )
@@ -82,21 +84,71 @@ var _ = Describe("Server", func() {
 		})
 
 		Describe("readyzHandler", func() {
-			It("should return ready status", func() {
-				req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
-				server.readyzHandler(recorder, req)
+			Context("when the served certificate is valid", func() {
+				BeforeEach(func() {
+					certDir := GinkgoT().TempDir()
+					writeSelfSignedCertPair(certDir, "ready.example.com")
+					loadCertWatcher(server, certDir)
+				})
 
-				Expect(recorder.Code).To(Equal(http.StatusOK))
-				Expect(recorder.Body.String()).To(Equal("ready"))
+				It("should return ready status", func() {
+					req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+					server.readyzHandler(recorder, req)
+
+					Expect(recorder.Code).To(Equal(http.StatusOK))
+					Expect(recorder.Body.String()).To(Equal("ready"))
+				})
+
+				It("should handle write errors gracefully", func() {
+					// Test that the handler completes even if write fails
+					req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+					recorder := httptest.NewRecorder()
+					server.readyzHandler(recorder, req)
+
+					Expect(recorder.Code).To(Equal(http.StatusOK))
+				})
 			})
 
-			It("should handle write errors gracefully", func() {
-				// Test that the handler completes even if write fails
-				req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
-				recorder := httptest.NewRecorder()
-				server.readyzHandler(recorder, req)
+			Context("when the served certificate has expired", func() {
+				BeforeEach(func() {
+					certDir := GinkgoT().TempDir()
+					writeSelfSignedCertPairWithValidity(certDir, "expired.example.com",
+						time.Now().Add(-48*time.Hour), time.Now().Add(-time.Hour))
+					loadCertWatcher(server, certDir)
+				})
 
-				Expect(recorder.Code).To(Equal(http.StatusOK))
+				It("should not report ready", func() {
+					req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+					server.readyzHandler(recorder, req)
+
+					Expect(recorder.Code).To(Equal(http.StatusServiceUnavailable))
+					Expect(recorder.Body.String()).To(ContainSubstring("expired"))
+				})
+			})
+
+			Context("when the served certificate is not yet valid", func() {
+				BeforeEach(func() {
+					certDir := GinkgoT().TempDir()
+					writeSelfSignedCertPairWithValidity(certDir, "future.example.com",
+						time.Now().Add(time.Hour), time.Now().Add(48*time.Hour))
+					loadCertWatcher(server, certDir)
+				})
+
+				It("should not report ready", func() {
+					req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+					server.readyzHandler(recorder, req)
+
+					Expect(recorder.Code).To(Equal(http.StatusServiceUnavailable))
+				})
+			})
+
+			Context("when no certificate has been loaded", func() {
+				It("should not report ready", func() {
+					req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+					server.readyzHandler(recorder, req)
+
+					Expect(recorder.Code).To(Equal(http.StatusServiceUnavailable))
+				})
 			})
 		})
 	})
@@ -196,6 +248,14 @@ var _ = Describe("Server", func() {
 	})
 })
 
+// loadCertWatcher points the server at the keypair in dir, as Start would, so
+// readiness checks can inspect the certificate it would serve.
+func loadCertWatcher(server *Server, dir string) {
+	watcher, err := certwatcher.New(filepath.Join(dir, "tls.crt"), filepath.Join(dir, "tls.key"))
+	Expect(err).ToNot(HaveOccurred())
+	server.certWatcher = watcher
+}
+
 // freeLocalPort reserves an ephemeral port and releases it so the server under
 // test can bind it.
 func freeLocalPort() int {
@@ -225,9 +285,17 @@ func servedCertCommonName(addr string) (string, error) {
 	return certs[0].Subject.CommonName, nil
 }
 
-// writeSelfSignedCertPair writes a self-signed tls.crt/tls.key pair for
-// commonName into dir, replacing any existing pair.
+// writeSelfSignedCertPair writes a currently-valid self-signed tls.crt/tls.key
+// pair for commonName into dir, replacing any existing pair.
 func writeSelfSignedCertPair(dir, commonName string) {
+	writeSelfSignedCertPairWithValidity(dir, commonName,
+		time.Now().Add(-time.Hour), time.Now().Add(24*time.Hour))
+}
+
+// writeSelfSignedCertPairWithValidity writes a self-signed tls.crt/tls.key pair
+// for commonName into dir with an explicit validity window, replacing any
+// existing pair.
+func writeSelfSignedCertPairWithValidity(dir, commonName string, notBefore, notAfter time.Time) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -237,8 +305,8 @@ func writeSelfSignedCertPair(dir, commonName string) {
 	template := x509.Certificate{
 		SerialNumber: serial,
 		Subject:      pkix.Name{CommonName: commonName},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(24 * time.Hour),
+		NotBefore:    notBefore,
+		NotAfter:     notAfter,
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		DNSNames:     []string{"localhost"},
