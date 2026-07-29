@@ -5,8 +5,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/jaevans/kubevirt-vm-feature-manager/pkg/config"
@@ -36,9 +38,25 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/healthz", s.healthzHandler)
 	mux.HandleFunc("/readyz", s.readyzHandler)
 
+	certFile := filepath.Join(s.config.CertDir, "tls.crt")
+	keyFile := filepath.Join(s.config.CertDir, "tls.key")
+
+	// Watch the keypair on disk rather than handing the paths to
+	// ListenAndServeTLS, which parses them once and caches the result for the
+	// lifetime of the process. The certificate is mounted from a Secret that
+	// cert-manager rotates well before expiry, so a cached keypair leaves the
+	// webhook serving an expired certificate until someone restarts the pod.
+	// Because the webhook has failurePolicy: Fail, that takes down every
+	// VirtualMachine create in the cluster.
+	certWatcher, err := certwatcher.New(certFile, keyFile)
+	if err != nil {
+		return fmt.Errorf("failed to load TLS keypair from %s: %w", s.config.CertDir, err)
+	}
+
 	// Configure TLS
 	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
+		MinVersion:     tls.VersionTLS12,
+		GetCertificate: certWatcher.GetCertificate,
 	}
 
 	s.server = &http.Server{
@@ -54,13 +72,22 @@ func (s *Server) Start(ctx context.Context) error {
 		"port", s.config.Port,
 		"certDir", s.config.CertDir)
 
-	// Start server in a goroutine
-	errChan := make(chan error, 1)
-	go func() {
-		certFile := fmt.Sprintf("%s/tls.crt", s.config.CertDir)
-		keyFile := fmt.Sprintf("%s/tls.key", s.config.CertDir)
+	errChan := make(chan error, 2)
 
-		if err := s.server.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
+	// Reload the keypair on change. certwatcher combines fsnotify events with
+	// periodic polling, so it survives the atomic symlink swap kubelet uses
+	// when updating a mounted Secret.
+	go func() {
+		if err := certWatcher.Start(ctx); err != nil {
+			errChan <- fmt.Errorf("certificate watcher failed: %w", err)
+		}
+	}()
+
+	// Start server in a goroutine
+	go func() {
+		// The keypair is supplied by tlsConfig.GetCertificate, so the file
+		// arguments are intentionally empty.
+		if err := s.server.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 			errChan <- err
 		}
 	}()
