@@ -105,31 +105,27 @@ sboms:
       - webhook
 
 # Sign artifacts (disabled in snapshot mode)
+# cosign v3 bundle format: signature and certificate in one .sigstore.json file
 signs:
   - cmd: cosign
-    env:
-      - COSIGN_EXPERIMENTAL=1
-    certificate: '${artifact}.pem'
+    signature: '${artifact}.sigstore.json'
     args:
       - sign-blob
-      - '--output-certificate=${certificate}'
-      - '--output-signature=${signature}'
+      - '--bundle=${signature}'
       - '${artifact}'
-      - "--yes" # needed on cosign 2.0.0+
+      - '--yes'
     artifacts: checksum
     output: true
 
 # Docker image signing (disabled in snapshot mode)
 docker_signs:
   - cmd: cosign
-    env:
-      - COSIGN_EXPERIMENTAL=1
     artifacts: all
     output: true
     args:
       - 'sign'
       - '${artifact}'
-      - "--yes" # needed on cosign 2.0.0+
+      - '--yes'
 
 # Release notes
 release:
