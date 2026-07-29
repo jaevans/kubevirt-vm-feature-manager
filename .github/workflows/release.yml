@@ -45,7 +45,7 @@ jobs:
 
       # Install Cosign for artifact signing (keyless OIDC-based signing)
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v4.1.2
 
       # Install Syft for SBOM (Software Bill of Materials) generation
       - name: Install Syft
