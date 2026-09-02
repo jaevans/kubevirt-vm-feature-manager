@@ -3,7 +3,7 @@ module github.com/jaevans/kubevirt-vm-feature-manager
 go 1.26.0
 
 require (
-	github.com/onsi/ginkgo/v2 v2.32.0
+	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.42.1
 	go.uber.org/zap v1.28.0
 	k8s.io/api v0.36.3
